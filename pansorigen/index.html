@@ -233,116 +233,275 @@
     <div class="pansorigen">
     <h2 style="text-align:center">Audio Examples</h2>
         <!-- Audio Examples with Alternating Text and Audio Rows -->
-        <!-- pansori -->
-        <section aria-labelledby="pansori">
-        <h3 id="pansori">Pansori</h3>
+        <!-- comparison -->
+        <section aria-labelledby="comparison">
+        <h3 id="comparison">Comparison By LoRA weights and Training Steps</h3>
+        <p>
+            Below are interactive audio tables corresponding to the FAD↓ score tables above (Tables 1 and 2). By listening to these samples, you can directly compare the influence of different LoRA configurations on the musical output.
+        </p>
+        <h4>Pansori</h4>
+            <table class="min-w-full border-collapse border border-gray-300">
+                <thead>
+                <tr class="bg-gray-200">
+                    <th class="border border-gray-300 px-4 py-2"></th>
+                    <th class="border border-gray-300 px-4 py-2">5k</th>
+                    <th class="border border-gray-300 px-4 py-2">10k</th>
+                    <th class="border border-gray-300 px-4 py-2">15k</th>
+                    <th class="border border-gray-300 px-4 py-2">20k</th>
+                    <th class="border border-gray-300 px-4 py-2">23k</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2 bg-gray-100">1</th>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio1.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio2.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio3.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio4.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio5.wav" type="audio/wav"></audio></td>
+                </tr>
+
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2 bg-gray-100">2</th>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio6.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio7.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio8.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio9.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio10.wav" type="audio/wav"></audio></td>
+                </tr>
+
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2 bg-gray-100">3</th>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio11.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio12.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio13.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio14.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio15.wav" type="audio/wav"></audio></td>
+                </tr>
+                </tbody>
+            </table>
+            <p>Original Audio</p>
+            <td style="text-align:center" class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table1/audio16.wav" type="audio/wav"></audio></td>
+            <ul class="tb1-desc">
+                <li>you can check inference configurations <a href="assets/manuscript/og_1.json" target="_blank">here.</a></li>
+            </ul>
+        <h4>Korean pop</h4>
+            <table class="min-w-full border-collapse border border-gray-300">
+                <thead>
+                <tr class="bg-gray-200">
+                    <th class="border border-gray-300 px-4 py-2"></th>
+                    <th class="border border-gray-300 px-4 py-2">5k</th>
+                    <th class="border border-gray-300 px-4 py-2">10k</th>
+                    <th class="border border-gray-300 px-4 py-2">15k</th>
+                    <th class="border border-gray-300 px-4 py-2">20k</th>
+                    <th class="border border-gray-300 px-4 py-2">23k</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2 bg-gray-100">1</th>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio1.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio2.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio3.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio4.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio5.wav" type="audio/wav"></audio></td>
+                </tr>
+
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2 bg-gray-100">2</th>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio6.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio7.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio8.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio9.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio10.wav" type="audio/wav"></audio></td>
+                </tr>
+
+                <tr>
+                    <th class="border border-gray-300 px-4 py-2 bg-gray-100">3</th>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio11.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio12.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio13.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio14.wav" type="audio/wav"></audio></td>
+                    <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio15.wav" type="audio/wav"></audio></td>
+                </tr>
+                </tbody>
+            </table>
+            <p>Original Audio</p>
+                <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets/audio/table2/audio16.wav" type="audio/wav"></audio></td>
+            <ul class="tb1-desc">
+                <li>you can check inference configurations <a href="assets/manuscript/og_1.json" target="_blank">here.</a></li>
+            </ul>
+            <br/><br/>
+
+        <h3 id="comparison">Comparison with Pansori and Korean pop</h3>
             <table class="audio-table">
                 <thead>
                     <tr>
                         <th>#</th>
+                        <th>Lyric genre</th>
                         <th>Lyric prompt</th>
                         <th>Pansori LoRA generated</th>
+                        <th>Korean pop LoRA generated</th>
                         <th>OG audio</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td class="row-number">1</td>
+                        <td class="genre">pansori</td>
                         <td class="lyric">
                             <details>
-                                <summary>제목</summary>
-                                <p>가사</p>
+                                <summary>title</summary>
+                                <p>lyrics</p>
                             </details>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/gen_1.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pansori_1.wav" type="audio/wav"/>
                             </audio>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/og_1.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pop_1.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/og_1.wav" type="audio/wav"/>
                             </audio>
                         </td>
                     </tr>
                     <tr>
                         <td class="row-number">2</td>
+                        <td class="genre">pansori</td>
                         <td class="lyric">
                             <details>
-                                <summary>제목</summary>
-                                <p>가사</p>
+                                <summary>title</summary>
+                                <p>lyrics</p>
                             </details>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/gen_2.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pansori_2.wav" type="audio/wav"/>
                             </audio>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/og_2.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pop_2.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/og_2.wav" type="audio/wav"/>
                             </audio>
                         </td>
                     </tr>
                     <tr>
                         <td class="row-number">3</td>
+                        <td class="genre">pansori</td>
                         <td class="lyric">
                             <details>
-                                <summary>제목</summary>
-                                <p>가사</p>
+                                <summary>title</summary>
+                                <p>lyrics</p>
                             </details>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/gen_3.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pansori_3.wav" type="audio/wav"/>
                             </audio>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/og_3.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pop_3.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/og_3.wav" type="audio/wav"/>
                             </audio>
                         </td>
                     </tr>
                     <tr>
                         <td class="row-number">4</td>
+                        <td class="genre">pop</td>
                         <td class="lyric">
                             <details>
-                                <summary>제목</summary>
-                                <p>가사</p>
+                                <summary>title</summary>
+                                <p>lyrics</p>
                             </details>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/gen_4.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pansori_4.wav" type="audio/wav"/>
                             </audio>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/og_4.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pop_4.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/og_4.wav" type="audio/wav"/>
                             </audio>
                         </td>
                     </tr>
                     <tr>
                         <td class="row-number">5</td>
+                        <td class="genre">pop</td>
                         <td class="lyric">
                             <details>
-                                <summary>제목</summary>
-                                <p>가사</p>
+                                <summary>title</summary>
+                                <p>lyrics</p>
                             </details>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/gen_5.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pansori_5.wav" type="audio/wav"/>
                             </audio>
                         </td>
                         <td>
                             <audio controls>
-                                <source src="assets/audio/og_5.wav" type="audio/wav" preload="auto" />
+                                <source src="assets/audio/table3/pop_5.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/og_5.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="row-number">6</td>
+                        <td class="genre">pop</td>
+                        <td class="lyric">
+                            <details>
+                                <summary>title</summary>
+                                <p>lyrics</p>
+                            </details>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/pansori_6.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/pop_6.wav" type="audio/wav"/>
+                            </audio>
+                        </td>
+                        <td>
+                            <audio controls>
+                                <source src="assets/audio/table3/og_6.wav" type="audio/wav"/>
                             </audio>
                         </td>
                     </tr>
                 </tbody>
             </table>
+            <ul class="tb1-desc">
+                <li>you can check pansori inference configurations <a href="assets/manuscript/pansori.json" target="_blank">here.</a></li>
+                <li>you can check Korean pop inference configurations <a href="assets/manuscript/pop.json" target="_blank">here.</a></li>
+            </ul>
     <br/>
 
 </section>
