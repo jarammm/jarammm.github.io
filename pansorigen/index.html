@@ -18,7 +18,7 @@
                 table {margin-left:auto; margin-right:auto;}
                 details { cursor: pointer; }
                 details > summary::-webkit-details-marker { display: none; }
-                summary { font-weight: 600; }
+                /* summary { font-weight: 600; } */
 
 
                 audio { width: 240px; max-width: 100%; height: 32px; }
@@ -206,10 +206,10 @@
                 </tbody>
             </table>
             <p>Original Audio</p>
+            <ul class="tb1-desc">
+                <li>Title : 흥보가 놀보집을 건너감</li>
+            </ul>
             <td style="text-align:center" class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets\audio\table3\og_1.mp3" type="audio/mp3"></audio></td>
-            <!-- <ul class="tb1-desc">
-                <li>you can check inference configurations <a href="assets/manuscript/og_1.json" target="_blank">here.</a></li>
-            </ul> -->
         <h4>Korean pop</h4>
             <table class="min-w-full border-collapse border border-gray-300">
                 <thead>
@@ -252,10 +252,10 @@
                 </tbody>
             </table>
             <p>Original Audio</p>
+            <ul class="tb1-desc">
+                <li>Title : 이등병의 편지</li>
+            </ul>
                 <td class="border border-gray-300 px-4 py-2"><audio controls class="w-full"><source src="assets\audio\table3\og_4.mp3" type="audio/mp3"></audio></td>
-            <!-- <ul class="tb1-desc">
-                <li>you can check inference configurations <a href="assets/manuscript/og_1.json" target="_blank">here.</a></li>
-            </ul> -->
             <br/><br/>
 
         <h3 id="comparison">Comparison with Pansori and Korean pop</h3>
@@ -263,23 +263,18 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Lyric genre</th>
-                        <th>Lyric prompt</th>
+                        <th>Genre</th>
+                        <th>Title</th>
                         <th>Pansori LoRA generated</th>
                         <th>Korean pop LoRA generated</th>
-                        <th>OG audio</th>
+                        <th>Original</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td class="row-number">1</td>
                         <td class="genre">pansori</td>
-                        <td class="lyric">
-                            <details>
-                                <summary>title</summary>
-                                <p>lyrics</p>
-                            </details>
-                        </td>
+                        <td>흥보가 놀보집을 건너감</td>
                         <td>
                             <audio controls>
                                 <source src="assets/audio/table3/pansori_1.mp3" type="audio/mp3"/>
@@ -299,12 +294,7 @@
                     <tr>
                         <td class="row-number">2</td>
                         <td class="genre">pansori</td>
-                        <td class="lyric">
-                            <details>
-                                <summary>title</summary>
-                                <p>lyrics</p>
-                            </details>
-                        </td>
+                        <td>여러 기생이 들어온다</td>
                         <td>
                             <audio controls>
                                 <source src="assets/audio/table3/pansori_2.mp3" type="audio/mp3"/>
@@ -324,12 +314,7 @@
                     <tr>
                         <td class="row-number">3</td>
                         <td class="genre">pansori</td>
-                        <td class="lyric">
-                            <details>
-                                <summary>title</summary>
-                                <p>lyrics</p>
-                            </details>
-                        </td>
+                        <td>임을 따라</td>
                         <td>
                             <audio controls>
                                 <source src="assets/audio/table3/pansori_3.mp3" type="audio/mp3"/>
@@ -349,12 +334,7 @@
                     <tr>
                         <td class="row-number">4</td>
                         <td class="genre">pop</td>
-                        <td class="lyric">
-                            <details>
-                                <summary>title</summary>
-                                <p>lyrics</p>
-                            </details>
-                        </td>
+                        <td>이등병의 편지</td>
                         <td>
                             <audio controls>
                                 <source src="assets/audio/table3/pansori_4.mp3" type="audio/mp3"/>
@@ -374,12 +354,7 @@
                     <tr>
                         <td class="row-number">5</td>
                         <td class="genre">pop</td>
-                        <td class="lyric">
-                            <details>
-                                <summary>title</summary>
-                                <p>lyrics</p>
-                            </details>
-                        </td>
+                        <td>불행아</td>
                         <td>
                             <audio controls>
                                 <source src="assets/audio/table3/pansori_5.mp3" type="audio/mp3"/>
@@ -399,12 +374,7 @@
                     <tr>
                         <td class="row-number">6</td>
                         <td class="genre">pop</td>
-                        <td class="lyric">
-                            <details>
-                                <summary>title</summary>
-                                <p>lyrics</p>
-                            </details>
-                        </td>
+                        <td>바람과 나</td>
                         <td>
                             <audio controls>
                                 <source src="assets/audio/table3/pansori_6.mp3" type="audio/mp3"/>
@@ -427,7 +397,212 @@
                 <!-- <li>you can check pansori inference configurations <a href="assets/manuscript/pansori.json" target="_blank">here.</a></li> -->
                 <!-- <li>you can check Korean pop inference configurations <a href="assets/manuscript/pop.json" target="_blank">here.</a></li> -->
                 <li>For inference, durations were set in 5-second increments without exceeding the original audio length. When the lyrics are very short compared to the audio length (e.g., the third track in the <i>Comparison with Pansori and Korean pop</i> table), durations were manually assigned.</li>
+                <li>Pop → lora weight 1 & step 10000 checkpoint / pansori → lora weight 2 & step 23000 or 15000 checkpoint</li>
             </ul>
+    <p>Inference Information</p>
+    <details>
+            <summary>common setting</summary>
+            <p>
+            <ul class="tb1-desc">
+                <li>infer step : 80</li>
+                <li>guidance scale : 15</li>
+                <li>scheduler type : euler</li>
+                <li>cfg type : apg</li>
+                <li>omega_scale : 20</li>
+                <li>guidance_interval : 1</li>
+                <li>guidance_interval_decay : 0</li>
+                <li>min_guidance_scale : 3</li>
+                <li>use_erg_tag : true</li>
+                <li>use_erg_lyric : false</li>
+                <li>use_erg_diffusion : true</li>
+            </ul>
+            </p>
+    </details>
+    <details>
+        <summary>흥보가 놀보집을 건너감</summary>
+        <p>
+            Tags : traditional, emotional, female, theatrical, articulate, narrative-song, dynamic,spoken-word<br/><br/>
+            Audio duration : 70<br/><br/>
+            Original lyrics :<br/>
+[아니리]<br/>
+흥보도 절구대 춤을 추며 .<br/>
+'참말로 열녀다 열녀여!!'<br/>
+흥보 마누라가.<br/>
+'여보 영감.<br/>
+그래도 죽으나 사나<br/>
+형제간 밖에 없으니<br/>
+건너 마을 시숙님 댁에나<br/>
+건너가서 다소간 전곡간이나<br/>
+주시면 어서 좀 받아 오시오.'<br/>
+'이 사람아 만일 건너갔다가<br/>
+보리만 주면 어떻하나?'<br/>
+'보리라도 많이만 주면<br/>
+얼마나 좋것소?<br/>
+흉년에 늘려 먹기는<br/>
+보리가 훨씬 좋아요.'<br/>
+'아 이사람아.<br/>
+먹는 보리가 아니라<br/>
+몽둥이 보리 말이여.'<br/>
+흥보가 들어 가는디<br/>
+[자진모리]<br/>
+흥보가 건너간다.<br/>
+흥보가 건너간다.<br/>
+흥보 치레를 볼짝시면<br/>
+철대 떨어진 헌 파립<br/>
+버릿줄 총총 매어<br/>
+조세 갓 끈을 달아 써<br/>
+떨어진 헌 망건<br/>
+밥풀관자 종이당줄<br/>
+뒷통나게 졸라매고<br/>
+떨어진 헌 도포<br/>
+실띠로 총총 매어<br/>
+고푼 배 눌러띠고<br/>
+한 손에다가<br/>
+곱돌 조대를 들고<br/>
+또 한 손에다가는<br/>
+떨어진 부채들고<br/>
+서리 아침 찬 바람에<br/>
+옆 걸음 쳐 손을 불며<br/>
+가만 가만 건너간다.<br/><br/>
+Romanized lyrics :<br/>
+        </p>
+    </details>
+    <details>
+        <summary>여러 기생이 들어온다</summary>
+        <p>
+            Tags : traditional, emotional,spoken-word, dynamic, female, theatrical, articulate, narrative-song<br/><br/>
+            Audio duration : 155<br/><br/>
+            Original lyrics :<br/>
+            [중중모리]<br/>
+춘향모친 이 들오난디<br/>
+이 소문을 늦게야 들었던가<br/>
+엎더지고 자빠지며 관문 앞으로<br/>
+우루루 춘향 앞에 엎더지며<br/>
+아이고 허허 내 딸이 죽었네<br/>
+아이고 이 몹쓸 년아<br/>
+너를 누가 열녀라고 석비 철비 세워줄거나<br/>
+아이고 이게 웬일이냐<br/>
+이방 상존 호방상존 내 딸이 무삼 죄요<br/>
+육십 당년 늙은 것이 진외원족 하나 없이<br/>
+다만 독녀 춘향 하나 열쇠경 한 막대로<br/>
+행실공부를 일삼더니 이 지경이 웬일이요<br/>
+연약한 춘향 다리 단의까지 피 비치니<br/>
+그 매 맞고 살 수 있소<br/>
+우리 모녀를 한꺼번에 죽여주오<br/>
+가슴을 쾅쾅 머리도 찍고 여광여취 실성발광<br/>
+치둥글 내리 둥글<br/>
+목제비질 절컥 여봐라 향단아<br/>
+삼문 밖을 빨리 나가 삯 사람을 사오너라<br/>
+서울로 쌍급주나 띠울란다<br/><br/>
+Romanized lyrics :<br/>
+        </p>
+    </details>
+    <details>
+        <summary>임을 따라</summary>
+        <p>
+            Tags : dynamic, female, traditional, narrative-song, theatrical, emotional, articulate,spoken-word<br/><br/>
+            Audio duration : 30<br/><br/>
+            Original lyrics :<br/>
+            갈까부다. 갈까부네.<br/>
+임을 따라 갈까부다.<br/>
+바람도 쉬어 넘고<br/>
+구름도 쉬어 넘는<br/>
+동설령 고개<br/>
+우리 님이 왔다 허면<br/>
+나는 발 벗고 임 따라 가지.<br/><br/>
+Romanized lyrics :<br/>
+        </p>
+    </details>
+    <details>
+        <summary>이등병의 편지</summary>
+        <p>
+            Tags : expressive, harmonic, slow, folk, romantic, lyrical, soft, rhythmic, emotional, instrumental<br/><br/>
+            Audio duration : 120<br/><br/>
+            Original lyrics :<br/>
+짧게 잘린 내 머리가<br/>
+처음에는 우습다가<br/>
+거울 속에 비친 내 모습이<br/>
+굳어진다 마음까지<br/>
+뒷동산에 올라서면<br/>
+우리 마을 보일런지<br/>
+나팔소리 고요하게<br/>
+밤하늘에 퍼지면<br/>
+이등병의 편지 한장<br/>
+고이 접어 보내오<br/>
+이제 다시 시작이다<br/>
+젊은 날의 꿈이여<br/><br/>
+Romanized lyrics :<br/>
+        </p>
+    </details>
+    <details>
+        <summary>불행아</summary>
+        <p>
+            Tags : blues, clean, dreamy, folk, jazz, major, melodic, minor, nostalgic, slow<br/><br/>
+            Audio duration : 225<br/><br/>
+            Original lyrics :<br/>
+            저 하늘에 구름 따라<br/>
+흐르는 강물을 따라<br/>
+정처없이 걷고만 싶구나<br/>
+바람을 벗 삼아가며<br/>
+눈앞에 떠오는 옛 추억<br/>
+아 그리워라<br/>
+소나기 퍼붓는 거리를<br/>
+나 홀로 외로이 걸으며<br/>
+그리운 부모형제<br/>
+다정한 옛 친구<br/>
+그러나 갈 수 없는 신세<br/>
+홀로 가슴 태우다 흙 속으로<br/>
+묻혀 갈 나의 인생아<br/>
+<br/>
+깊고 맑고 파란 무언가를 찾아<br/>
+떠 돌이 품팔이 마냥<br/>
+친구 하나 찾아와 주지 않는<br/>
+이 곳에 별을 보며 울먹이네<br/>
+이 거리 저 거리 헤메이다<br/>
+잠자리는 어느 곳일까<br/>
+지팡이 짚고 절룩거려도<br/>
+어디엔 듯 이끌리이까<br/>
+그리운 부모형제<br/>
+다정한 옛 친구<br/>
+그러나 갈 수 없는 신세<br/>
+홀로 가슴 태우다 흙속으로<br/>
+묻혀 갈 나의 인생아<br/>
+묻혀 갈 나의 인생아<br/>
+묻혀 갈 나의 인생아<br/>
+묻혀 갈 나의 인생아<br/>
+묻혀 갈 나의 인생아<br/><br/>
+Romanized lyrics :<br/>
+        </p>
+    </details>
+    <details>
+        <summary>바람과 나</summary>
+        <p>
+            Tags : acoustic, expressive, folk, intimate, loud, minor, nostalgic, pop, sad, soulful<br/><br/>
+            Audio duration : 240<br/><br/>
+            Original lyrics :<br/>
+끝 끝없는 바람<br/>
+저 험한 산 위로<br/>
+나뭇잎 사이 불어가는<br/>
+아 자유의 바람<br/>
+저 언덕 너머 물결같이<br/>
+춤추던 님<br/>
+무명무실 무감한 님<br/>
+나도 님과 같은 인생을<br/>
+지녀볼래 지녀볼래<br/>
+<br/>
+물결 건너편에<br/>
+황혼에 젖은 산 끝 보다도<br/>
+아름다운<br/>
+아 나의 님 바람<br/>
+뭇 느낌없이 진행하는<br/>
+시간따라<br/>
+하늘위로 구름따라<br/>
+무목여행하는 그대여<br/>
+인생은 나 인생은 나<br/>
+인생은 나 인생은 나<br/><br/>
+Romanized lyrics :<br/>
+        </p>
+    </details>        
     <br/>
 
 </section>
