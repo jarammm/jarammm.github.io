@@ -47,6 +47,19 @@ Song stems do not need to be published with the site.
 Only `stems[].file` is required. Pad order follows `stems` (row-major), and so does the mask bit order.
 Keyboard shortcuts follow the same order: `1`–`0`, then `Q`… (physical keys, so they work with any IME).
 
+## Export mix
+
+**Export mix** downloads the audible mix as a 16-bit WAV, for testing caption and generation models offline.
+
+- Range: the section under the playhead, or the whole loop when stopped or without sections.
+- Content: the target state, i.e. what will sound once any quantized change lands.
+- Mixing rule: plain sum of audible stems at gain 1, no limiter. If the sum exceeds full scale, the whole file
+  is scaled down instead of clipped, and the gain is written into the name.
+  The show bridge renders with the same rule, so the same `(mask, section)` gives the same audio.
+- Name: `<song>_<section|loop>_<mask>[_gain<dB>dB].wav`, e.g. `demo-loop-synthesized_A_100010000.wav`.
+- Sample rate is the browser's audio rate (stems are resampled on decode). Use stems at that rate (usually 48 kHz)
+  to keep exports bit-comparable with bridge renders.
+
 ## Bridge protocol
 
 Open with `?bridge=ws://<host>:<port>/<path>`. Without it the page runs standalone.

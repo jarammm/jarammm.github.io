@@ -10,6 +10,7 @@ import { StemEngine } from "./engine.js";
 import { renderDemo } from "./demo.js";
 import { loadFromFiles, loadFromUrl } from "./loader.js";
 import { BridgeClient } from "./bridge.js";
+import { exportRange, mixAudible, fitGain, encodeWav16, exportFileName } from "./export.js";
 
 const FEATURE_INTERVAL_MS = 33; // ~30 Hz to the bridge
 const PAD_KEY_CODES = PAD_KEYS.map((k) => (/\d/.test(k) ? `Digit${k}` : `Key${k}`));
@@ -18,7 +19,8 @@ const $ = (id) => document.getElementById(id);
 const ui = {
   title: $("song-title"), audio: $("audio-status"), bridge: $("bridge-status"),
   demo: $("load-demo"), folder: $("load-folder"), files: $("load-files"),
-  quantize: $("quantize"), clear: $("clear"), start: $("start"), stop: $("stop"),
+  quantize: $("quantize"), clear: $("clear"), start: $("start"), stop: $("stop"), export: $("export"),
+  exportInfo: $("export-info"),
   grid: $("grid"), wrap: document.querySelector(".grid-wrap"), hint: $("drop-hint"),
   audible: $("audible-list"), position: $("position"), meter: $("meter"), warnings: $("warnings"),
 };
@@ -65,6 +67,7 @@ async function load(loader) {
     if (!m.bpm) ui.quantize.value = "off";
     ui.start.disabled = false;
     ui.stop.disabled = true;
+    ui.export.disabled = false;
     ui.hint.hidden = true;
     showWarnings([...warnings, ...alignWarnings]);
     setChip(ui.audio, "audio", "ready");
@@ -180,6 +183,28 @@ function stop() {
   setChip(ui.audio, "audio", "ready");
 }
 
+// ---------- export ----------
+
+/**
+ * Download the target mix (the state's audible set, even if a quantized change is still pending)
+ * for the section under the playhead, or the whole loop when stopped.
+ */
+function exportMix() {
+  if (!state) return;
+  const { start, end, section } = exportRange(manifest.sections, engine.loopDur, engine.playhead());
+  const { channels, sampleRate, peak } = mixAudible(engine.stems, new Set(state.audible()), start, end);
+  const { gain, db } = fitGain(peak);
+  const name = exportFileName({ song: manifest.title, section, mask: state.mask(), db });
+  const url = URL.createObjectURL(new Blob([encodeWav16(channels, sampleRate, gain)], { type: "audio/wav" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  ui.exportInfo.textContent =
+    `${name}  ·  ${(end - start).toFixed(2)} s, ${sampleRate} Hz` + (db ? `  ·  scaled ${db} dB to avoid clipping` : "");
+}
+
 // ---------- readout and feature stream ----------
 
 const bars = Array.from({ length: 8 }, () => document.createElement("i"));
@@ -256,6 +281,7 @@ document.querySelectorAll('input[name="mode"]').forEach((r) => r.addEventListene
   apply();
 }));
 ui.clear.addEventListener("click", () => { if (state) { state.clear(); apply(); } });
+ui.export.addEventListener("click", exportMix);
 ui.start.addEventListener("click", start);
 ui.stop.addEventListener("click", stop);
 

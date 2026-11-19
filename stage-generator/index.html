@@ -50,6 +50,7 @@
           </select>
         </label>
         <button id="clear" type="button">Clear</button>
+        <button id="export" type="button" disabled title="Download the audible mix of the current section as WAV">Export mix</button>
         <button id="start" type="button" class="primary" disabled>Start</button>
         <button id="stop" type="button" disabled>Stop</button>
       </div>
@@ -63,6 +64,7 @@
     <section class="readout" aria-live="polite">
       <div class="row"><span class="k">audible</span><span id="audible-list">—</span></div>
       <div class="row"><span class="k">position</span><span id="position">—</span></div>
+      <div class="row"><span class="k">export</span><span id="export-info">—</span></div>
       <div class="meter" id="meter" aria-hidden="true"></div>
       <ul class="warnings" id="warnings"></ul>
     </section>
