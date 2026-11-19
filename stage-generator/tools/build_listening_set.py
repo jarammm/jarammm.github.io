@@ -2,12 +2,17 @@
 # requires-python = ">=3.12"
 # dependencies = ["numpy==2.5.4", "soundfile==0.14.0", "scipy==1.18.1"]
 # ///
-"""Build the local listening set for the Stage Generator page from the musical-textsetting outputs.
+"""Build the streamed song set for the Stage Generator page from the musical-textsetting outputs.
 
-For each of the four shared songs this writes a 90 s excerpt as FLAC files plus a stems.json manifest:
-  bases  : mix (the original recording), accompaniment, vocals  -- what "subtract" removes from
-  stems  : vocals (principal characters), ensemble (everyone else), and 8 instrument classes
-           (brass, woodwind, bowed_strings, harp, keys, guitar, drums_perc, bass)
+For each song this writes the full recording, cut into fixed-length FLAC chunks so the page can stream it:
+  recording : mix (the original recording)
+  stems     : vocals (principal characters), ensemble (everyone else), and 8 instrument classes
+              (brass, woodwind, bowed_strings, harp, keys, guitar, drums_perc, bass)
+  bases     : what "subtract" removes from, as signed sums of the files above:
+              mix = recording; vocals = vocals + ensemble; accompaniment = mix - vocals - ensemble.
+              The voice stems sum to the MelBand vocals (-75..-84 dB), and MelBand vocals + accompaniment
+              reconstruct the mix (about -66 dB), so these sums stand in for the MelBand files without
+              shipping them.
 Everything is put on the scale of the original mix so that "base - pressed stems" is meaningful:
   - The MelBand files are stored quieter than the mix (vocals + accompaniment at unity leave a
     -10..-20 dB residual; with least-squares scales the residual is about -66 dB). The two scales are
@@ -16,13 +21,15 @@ Everything is put on the scale of the original mix so that "base - pressed stems
     (levels.csv `written_gain_db`), which is undone before the accompaniment scale is applied.
   - Character tracks (24 kHz mono, from the MelBand vocals) are resampled to 44.1 kHz and copied to
     both channels. That drops the stereo side (reverb, width; about -6 dB of the vocals) and the band
-    above 12 kHz. The missing part, vocals base - (vocals + ensemble), is shared back between the two
-    tracks by their smoothed energy share at each moment, so the two voice stems sum to the vocals base
-    exactly while the character assignment stays as it was.
-The audio is copyrighted cast-recording material. The repository owner chose to publish these excerpts
-with the page (2026-11-19); rebuilding or extending the set does not change that decision.
+    above 12 kHz. The missing part, vocals - (vocals + ensemble), is shared back between the two
+    tracks by their smoothed energy share at each moment, so the two voice stems sum to the MelBand
+    vocals exactly while the character assignment stays as it was.
+Chunks are cut at exact sample multiples and quantized per sample, so concatenating them gives the same
+samples as one long file; the page plays them back to back on one clock at 44.1 kHz (no resampling).
+The audio is copyrighted cast-recording material. The repository owner chose to publish it with the page
+and credit each recording (2026-11-19). Aladdin is left out by default because of its length.
 
-Run: uv run stage-generator/tools/build_listening_set.py [--source DIR] [--out DIR] [--seconds 90]
+Run: uv run stage-generator/tools/build_listening_set.py [--source DIR] [--out DIR] [--exclude NAME ...]
 """
 import argparse
 import csv
@@ -36,6 +43,7 @@ from scipy.signal import resample_poly
 
 REPO = Path(__file__).resolve().parents[2]
 SR = 44100
+CHUNK_S = 20                 # seconds per streamed chunk: ~1 MB of FLAC per source, small enough to fetch ahead
 INSTRUMENTS = ["brass", "woodwind", "bowed_strings", "harp", "keys", "guitar", "drums_perc", "bass"]
 LABELS = {"vocals": "Vocals", "ensemble": "Ensemble", "brass": "Brass", "woodwind": "Woodwind",
           "bowed_strings": "Bowed strings", "harp": "Harp", "keys": "Keys", "guitar": "Guitar",
@@ -43,8 +51,8 @@ LABELS = {"vocals": "Vocals", "ensemble": "Ensemble", "brass": "Brass", "woodwin
 COLORS = {"vocals": "#f472b6", "ensemble": "#c084fc", "brass": "#facc15", "woodwind": "#a3e635",
           "bowed_strings": "#2dd4bf", "harp": "#38bdf8", "keys": "#4ade80", "guitar": "#fb923c",
           "drums_perc": "#f87171", "bass": "#818cf8"}
-ACTIVE_DB = -30.0   # a stem counts as present in a second when its RMS is within 30 dB of the song mix RMS
-FADE_S = 0.01       # identical edge fades on every file keep the loop seam click-free and base - stems exact
+FADE_S = 0.01                # identical edge fades on every file keep the loop seam click-free and base - stems exact
+DEFAULT_EXCLUDE = ["Aladdin - Friend Like Me"]   # user decision 2026-11-19: too long to stream comfortably
 
 
 def rms_db(x: np.ndarray) -> float:
@@ -104,35 +112,30 @@ def fit_scales(mix: np.ndarray, voc: np.ndarray, acc: np.ndarray) -> tuple[float
     return float(gv), float(ga), rms_db(m - A @ np.array([gv, ga])) - rms_db(m)
 
 
-def pick_window(stems: dict, mix_db: float, downbeats: list, seconds: float, total: float) -> float:
-    """Start time (on a downbeat) of the window where the most stems sound, favouring both voices together."""
-    n_sec = int(total)
-    active = {}
-    for k, x in stems.items():
-        frames = x[: n_sec * SR].reshape(n_sec, SR, -1)                       # (S, SR, C)
-        lv = 10 * np.log10(np.mean(frames.astype(np.float64) ** 2, axis=(1, 2)) + 1e-20)  # (S,)
-        active[k] = lv - mix_db > ACTIVE_DB
-    per_sec = sum(a.astype(int) for a in active.values()) + 2 * (active["vocals"] & active["ensemble"])  # (S,)
-    starts = [t for t in downbeats if t + seconds <= total] or list(np.arange(0, total - seconds, 1.0))
-    csum = np.concatenate([[0], np.cumsum(per_sec)])
-    score = lambda t: csum[min(n_sec, int(t + seconds))] - csum[int(t)]
-    return float(max(starts, key=score))
-
-
-def sections_in(path: Path, t0: float, t1: float) -> list:
-    """SongFormer sections clipped to the window, numbered per label over the whole song (verse1, verse2...)."""
+def song_sections(path: Path) -> list:
+    """SongFormer sections, numbered per label over the song (verse1, verse2...)."""
     out, seen = [], {}
     with open(path) as f:
         for row in csv.DictReader(f, delimiter="\t"):
-            a, b, lab = float(row["start"]), float(row["end"]), row["label"]
+            lab = row["label"]
             seen[lab] = seen.get(lab, 0) + 1
-            if b > t0 and a < t1:
-                out.append({"name": f"{lab}{seen[lab]}", "start": round(max(a, t0) - t0, 3),
-                            "end": round(min(b, t1) - t0, 3)})
+            out.append({"name": f"{lab}{seen[lab]}", "start": round(float(row["start"]), 3),
+                        "end": round(float(row["end"]), 3)})
     return out
 
 
-def build_song(song_dir: Path, vocal_sep: Path, out_root: Path, seconds: float) -> dict:
+def write_chunks(x: np.ndarray, folder: Path, chunk: int) -> int:
+    """Write x (T, 2) as folder/<k>.flac, `chunk` samples each (the last one shorter). Returns the count."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for old in folder.glob("*.flac"):
+        old.unlink()
+    k = 0
+    for k, i in enumerate(range(0, len(x), chunk)):
+        sf.write(folder / f"{k}.flac", x[i:i + chunk], SR, subtype="PCM_16")
+    return k + 1
+
+
+def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
     song = song_dir.name
     meta = json.loads((song_dir / "song.json").read_text())
     rhythm = json.loads((song_dir / "rhythm/beats_downbeats_meter.json").read_text())
@@ -140,8 +143,8 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path, seconds: float) 
     voc = read(song_dir / "stems/vocals.wav")                       # (T, 2)
     acc = read(song_dir / "stems/accompaniment.wav")                # (T, 2)
     n = len(voc)
-    mix48, msr = sf.read(song_dir / "audio.mp3", dtype="float32", always_2d=True)  # (T48, 2)
-    mix = resample_poly(mix48, 147, 160, axis=0).astype(np.float32)[:n]           # (T, 2)
+    mix48, _ = sf.read(song_dir / "audio.mp3", dtype="float32", always_2d=True)  # (T48, 2)
+    mix = resample_poly(mix48, 147, 160, axis=0).astype(np.float32)[:n]         # (T, 2)
     assert len(mix) == n, f"{song}: mix length {len(mix)} != stems {n}"
     gv, ga, resid_db = fit_scales(mix, voc, acc)
 
@@ -159,30 +162,22 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path, seconds: float) 
     stems["vocals"], stems["ensemble"] = share_residual([stems["vocals"], stems["ensemble"]], gv * voc)
     for k in INSTRUMENTS:
         stems[k] = inst_gain * read(vocal_sep / "mega53_9" / song / f"{k}.flac")[:n]
-    bases = {"mix": mix, "accompaniment": ga * acc, "vocals": gv * voc}
+    del voc, acc, mix48
 
-    mix_db = rms_db(mix)
-    t0 = pick_window(stems, mix_db, rhythm["downbeats"], seconds, n / SR)
-    t1 = t0 + seconds
-    i0, i1 = int(round(t0 * SR)), int(round(t0 * SR)) + int(round(seconds * SR))
-    fade = np.ones(i1 - i0, np.float32)
+    fade = np.ones(n, np.float32)
     k = int(FADE_S * SR)
     ramp = (0.5 - 0.5 * np.cos(np.linspace(0, np.pi, k))).astype(np.float32)
     fade[:k], fade[-k:] = ramp, ramp[::-1]
-    cut = lambda x: x[i0:i1] * fade[:, None]                         # (N, 2)
-
-    files = {f"base_{p}": cut(x) for p, x in bases.items()} | {k: cut(x) for k, x in stems.items()}
+    files = {"mix": mix * fade[:, None]} | {s: x * fade[:, None] for s, x in stems.items()}
     peak = max(float(np.abs(x).max()) for x in files.values())
     file_gain = min(1.0, 0.999 / peak)                                # same gain on every file keeps base - stems exact
 
     out = out_root / slug(f"{meta['work']} {meta['title']}")
-    out.mkdir(parents=True, exist_ok=True)
-    for name, x in files.items():
-        sf.write(out / f"{name}.flac", x * file_gain, SR, subtype="PCM_16")
+    chunk = CHUNK_S * SR
+    counts = {name: write_chunks(x * file_gain, out / name, chunk) for name, x in files.items()}
+    assert len(set(counts.values())) == 1, counts
 
-    rel = lambda x: round(rms_db(cut(x)) - rms_db(cut(mix)), 1)
-    beats = [round(b - t0, 3) for b in rhythm["beats"] if t0 <= b < t1]
-    downbeats = [round(b - t0, 3) for b in rhythm["downbeats"] if t0 <= b < t1]
+    rel = lambda x: round(rms_db(x) - rms_db(mix), 1)
     wm = meta.get("work_meta") or {}
     credits = {
         "work": meta["work"],
@@ -193,28 +188,34 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path, seconds: float) 
         "music": wm.get("music"),
         "lyrics": wm.get("lyrics"),
         "source_url": meta.get("youtube_url"),
-        "notice": "Excerpt of the official cast recording, downloaded from YouTube. "
-                  "All rights belong to the respective rights holders.",
+        "notice": "Official cast recording, downloaded from YouTube. All rights belong to the respective rights holders.",
     }
     manifest = {
         "title": f"{meta['work']} - {meta['title']}",
         "credits": credits,
         "bpm": meta["rhythm"]["bpm"],
         "beats_per_bar": 4,
-        "beats": beats,
-        "downbeats": downbeats,
-        "sections": sections_in(song_dir / "structure/songformer_sections.tsv", t0, t1),
-        "bases": {p: f"base_{p}.flac" for p in bases},
-        "stems": [{"id": k, "label": LABELS[k], "group": "vocals" if k in ("vocals", "ensemble") else "accompaniment",
-                   "color": COLORS[k], "file": f"{k}.flac", "level_db": rel(x)} for k, x in stems.items()],
+        "beats": [round(b, 3) for b in rhythm["beats"]],
+        "downbeats": [round(b, 3) for b in rhythm["downbeats"]],
+        "sections": song_sections(song_dir / "structure/songformer_sections.tsv"),
+        "sample_rate": SR,
+        "length": n,
+        "chunks": {"samples": chunk, "count": counts["mix"], "path": "{id}/{k}.flac"},
+        "recordings": [{"id": "mix", "label": "Original mix"}],
+        "bases": {
+            "mix": {"rec:mix": 1},
+            "accompaniment": {"rec:mix": 1, "vocals": -1, "ensemble": -1},
+            "vocals": {"vocals": 1, "ensemble": 1},
+        },
+        "stems": [{"id": s, "label": LABELS[s], "group": "vocals" if s in ("vocals", "ensemble") else "accompaniment",
+                   "color": COLORS[s], "level_db": rel(x)} for s, x in stems.items()],
         "provenance": {
-            "excerpt_sec": [round(t0, 3), round(t1, 3)],
             "file_gain_db": round(20 * np.log10(file_gain), 2),
             "melband_scale": {"vocals": round(gv, 4), "accompaniment": round(ga, 4), "mix_residual_db": round(resid_db, 1)},
             "instrument_written_gain_db": levels["written_gain_db"],
             "vocals_tracks": [p.stem for p in chars],
             "ensemble_track": "others",
-            "level_db_note": "excerpt RMS relative to the excerpt mix",
+            "level_db_note": "song RMS relative to the song mix",
             "source": {"mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
                        "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
                        "instruments": "temp/vocal_sep/out/mega53_9/<song>/",
@@ -222,8 +223,8 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path, seconds: float) 
         },
     }
     (out / "stems.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-    print(f"{song}: window {t0:.1f}-{t1:.1f} s, scales voc {gv:.3f} acc {ga:.3f} (resid {resid_db:.1f} dB), "
-          f"file gain {manifest['provenance']['file_gain_db']} dB, sections {[s['name'] for s in manifest['sections']]}")
+    print(f"{song}: {n / SR:.1f} s, {counts['mix']} chunks x {len(files)} sources, scales voc {gv:.3f} acc {ga:.3f} "
+          f"(resid {resid_db:.1f} dB), file gain {manifest['provenance']['file_gain_db']} dB")
     return {"title": manifest["title"], "manifest": f"{out.name}/stems.json"}
 
 
@@ -232,11 +233,12 @@ def main():
     ap.add_argument("--source", type=Path, default=REPO.parent / "musical-textsetting",
                     help="musical-textsetting project root")
     ap.add_argument("--out", type=Path, default=REPO / "stage-generator" / "audio")
-    ap.add_argument("--seconds", type=float, default=90.0)
+    ap.add_argument("--exclude", nargs="*", default=DEFAULT_EXCLUDE, help="song folder names to leave out")
     args = ap.parse_args()
     share = args.source / "results" / "share_four_songs"
     vocal_sep = args.source / "temp" / "vocal_sep" / "out"
-    songs = [build_song(d, vocal_sep, args.out, args.seconds) for d in sorted(p for p in share.iterdir() if p.is_dir())]
+    dirs = sorted(p for p in share.iterdir() if p.is_dir() and p.name not in args.exclude)
+    songs = [build_song(d, vocal_sep, args.out) for d in dirs]
     (args.out / "songs.json").write_text(json.dumps({"songs": songs}, indent=2, ensure_ascii=False))
 
 

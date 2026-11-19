@@ -1,0 +1,16 @@
+{
+  "songs": [
+    {
+      "title": "Les Misérables - One Day More",
+      "manifest": "les-mis-rables-one-day-more/stems.json"
+    },
+    {
+      "title": "The Phantom of the Opera - Masquerade / Why So Silent",
+      "manifest": "the-phantom-of-the-opera-masquerade-why-so-silent/stems.json"
+    },
+    {
+      "title": "Wicked - No One Mourns The Wicked",
+      "manifest": "wicked-no-one-mourns-the-wicked/stems.json"
+    }
+  ]
+}
