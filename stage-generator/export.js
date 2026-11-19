@@ -1,4 +1,4 @@
-// Export what the controller plays as a WAV file, for offline model and prompt tests.
+// Export what the controller plays (the whole song) as a WAV file, for offline model and prompt tests.
 // The mixing rule must match the show bridge's mixer.render so that an exported file and a
 // bridge render of the same setting are the same audio:
 //   sum of every source (stems and base recordings) times its gain (+1, -1 or 0), no limiter;
@@ -36,6 +36,35 @@ export function mixGains(sources, gains, start, end) {
   let peak = 0;
   for (const ch of channels) for (const v of ch) peak = Math.max(peak, Math.abs(v));
   return { channels, sampleRate: sr, peak };
+}
+
+/**
+ * Mix the whole song chunk by chunk: only sources with a non-zero gain are fetched.
+ * @param {{timeline:object, sources:{id:string}[], getChunk:Function}} song  loader song
+ * @param {Object<string,number>} gains  source id -> gain
+ * @param {BaseAudioContext} ctx  decodes chunks (at the song's sample rate for streamed songs)
+ * @param {(done:number, total:number)=>void} onProgress
+ * @returns {Promise<{channels: Float32Array[], sampleRate:number, peak:number}>}  channels: (C, song length)
+ */
+export async function renderSong(song, gains, ctx, onProgress = () => {}) {
+  const tl = song.timeline;
+  const active = song.sources.filter((s) => gains[s.id]);
+  const channels = [new Float32Array(tl.length), new Float32Array(tl.length)];  // (2, N)
+  let peak = 0;
+  let sampleRate = tl.sampleRate;
+  for (let k = 0; k < tl.chunkCount; k++) {
+    if (active.length) {
+      const buffers = await Promise.all(active.map((s) => song.getChunk(ctx, s.id, k)));
+      sampleRate = buffers[0].sampleRate;
+      const n = Math.min(tl.chunkSamples, tl.length - k * tl.chunkSamples);
+      const part = mixGains(active.map((s, i) => ({ id: s.id, buffer: buffers[i] })), gains, 0, n / sampleRate);
+      const at = k * tl.chunkSamples;
+      for (let c = 0; c < 2; c++) channels[c].set(part.channels[Math.min(c, part.channels.length - 1)], at);
+      peak = Math.max(peak, part.peak);
+    }
+    onProgress(k + 1, tl.chunkCount);
+  }
+  return { channels, sampleRate, peak };
 }
 
 /** Gain that keeps the mix within full scale, and the same gain in dB (0 when untouched). */

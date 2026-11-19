@@ -1,7 +1,7 @@
 // Tests for mix export: range choice, mixing rule, gain fitting, WAV encoding and naming.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mixGains, fitGain, encodeWav16, exportFileName } from "../export.js";
+import { mixGains, renderSong, fitGain, encodeWav16, exportFileName } from "../export.js";
 
 /** AudioBuffer stand-in built from per-channel arrays. */
 function buf(chans, sampleRate = 10) {
@@ -68,4 +68,22 @@ test("file name carries song, setting, pressed mask and any gain", () => {
     "demo-loop-synthesized_add-vocals_sel101.wav");
   assert.equal(exportFileName({ song: "X", mode: "subtract", pool: "mix", selectedMask: "1", db: -1.8 }),
     "x_subtract-mix_sel1_gain-1.8dB.wav");
+});
+
+test("renderSong stitches chunks and fetches only sources that sound", async () => {
+  // 5 samples in chunks of 2: chunks of 2, 2, 1 samples.
+  const data = { "rec:mix": [0.5, 0.5, 0.5, 0.5, 0.5], v: [0.1, 0.2, 0.3, 0.4, 0.5], b: [9, 9, 9, 9, 9] };
+  const fetched = [];
+  const song = {
+    timeline: { sampleRate: 10, length: 5, chunkSamples: 2, chunkCount: 3 },
+    sources: [{ id: "rec:mix" }, { id: "v" }, { id: "b" }],
+    getChunk: async (_ctx, id, k) => { fetched.push(id); return buf([data[id].slice(k * 2, k * 2 + 2)]); },
+  };
+  const progress = [];
+  const { channels, peak } = await renderSong(song, { "rec:mix": 1, v: -1, b: 0 }, null, (d, t) => progress.push(`${d}/${t}`));
+  assert.deepEqual([...channels[0]].map((x) => +x.toFixed(4)), [0.4, 0.3, 0.2, 0.1, 0]);
+  assert.deepEqual([...channels[1]].map((x) => +x.toFixed(4)), [0.4, 0.3, 0.2, 0.1, 0]);
+  assert.ok(!fetched.includes("b"));
+  assert.deepEqual(progress, ["1/3", "2/3", "3/3"]);
+  assert.ok(Math.abs(peak - 0.4) < 1e-6);
 });
