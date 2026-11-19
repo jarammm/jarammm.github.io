@@ -19,8 +19,8 @@ Everything is put on the scale of the original mix so that "base - pressed stems
     above 12 kHz. The missing part, vocals base - (vocals + ensemble), is shared back between the two
     tracks by their smoothed energy share at each moment, so the two voice stems sum to the vocals base
     exactly while the character assignment stays as it was.
-The audio is copyrighted cast-recording material for lab-internal use: the output folder is git-ignored
-and must not be published.
+The audio is copyrighted cast-recording material. The repository owner chose to publish these excerpts
+with the page (2026-11-19); rebuilding or extending the set does not change that decision.
 
 Run: uv run stage-generator/tools/build_listening_set.py [--source DIR] [--out DIR] [--seconds 90]
 """
@@ -183,8 +183,22 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path, seconds: float) 
     rel = lambda x: round(rms_db(cut(x)) - rms_db(cut(mix)), 1)
     beats = [round(b - t0, 3) for b in rhythm["beats"] if t0 <= b < t1]
     downbeats = [round(b - t0, 3) for b in rhythm["downbeats"] if t0 <= b < t1]
+    wm = meta.get("work_meta") or {}
+    credits = {
+        "work": meta["work"],
+        "song": meta["title"],
+        # YouTube auto-generated artist channels end in " - Topic"; that suffix is not part of the name.
+        "performers": re.sub(r"\s*-\s*Topic$", "", meta.get("artist") or ""),
+        "album": meta.get("album"),
+        "music": wm.get("music"),
+        "lyrics": wm.get("lyrics"),
+        "source_url": meta.get("youtube_url"),
+        "notice": "Excerpt of the official cast recording, downloaded from YouTube. "
+                  "All rights belong to the respective rights holders.",
+    }
     manifest = {
         "title": f"{meta['work']} - {meta['title']}",
+        "credits": credits,
         "bpm": meta["rhythm"]["bpm"],
         "beats_per_bar": 4,
         "beats": beats,

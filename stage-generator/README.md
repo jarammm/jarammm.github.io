@@ -61,11 +61,21 @@ Only `stems[].file` is required. Pad order follows `stems` (row-major), and so d
 `level_db` (stem level vs the mix) is shown on the pad; below −60 dB the pad reads "silent".
 All files, bases included, must share start time and length so that subtraction cancels sample by sample.
 
-### Local song set
+### Copyright
+
+The four excerpts in `audio/` are taken from official cast recordings downloaded from YouTube:
+*Aladdin* "Friend Like Me", *Les Misérables* "One Day More", *The Phantom of the Opera*
+"Masquerade / Why So Silent" and *Wicked* "No One Mourns the Wicked". All rights belong to the respective
+rights holders (composers, lyricists, performers and labels). Each song's `stems.json` carries a `credits`
+block (work, song, performers, music, lyrics, source URL), and the page shows it under the song title.
+The separated stems derived from them are for research listening only.
+
+### Song set
 
 `tools/build_listening_set.py` builds 90 s excerpts of four musical numbers from the lab's
-`musical-textsetting` outputs into `stage-generator/audio/` (git-ignored: cast recordings, lab-internal only).
-When `audio/songs.json` exists next to the page, a song picker appears. Run it with `uv run`; the
+`musical-textsetting` outputs into `stage-generator/audio/` (FLAC, about 215 MB). The excerpts are cast
+recordings under copyright, included here for research listening. When `audio/songs.json` exists next to
+the page, a song picker appears and the first song loads (about 50 MB per song). Run it with `uv run`; the
 script header documents how the stems are scaled onto the original mix.
 Keyboard shortcuts follow the same order: `1`–`0`, then `Q`… (physical keys, so they work with any IME).
 
