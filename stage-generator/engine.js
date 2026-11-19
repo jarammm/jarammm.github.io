@@ -1,124 +1,255 @@
-// Gapless playback engine on Web Audio.
-// Every source (stems and base recordings) starts on one shared clock and loops forever;
-// changes only ramp gains, so the audio never pauses or re-triggers while the operator plays the grid.
-// Gains may be negative: "base - stem" is played as base at +1 and stem at -1, which cancels the
-// stem inside the base sample by sample (all sources are sample-aligned).
+// Streaming playback engine on Web Audio.
+// Every source (stems and recordings) plays chunk after chunk on one shared clock and loops forever;
+// pad changes only ramp gains, so the audio never pauses or re-triggers while the operator plays the grid.
+// Gains may be negative: "base - stem" is played as base at +1 and stem at -1, which cancels the stem
+// inside the base sample by sample. That needs sample-exact alignment, so:
+//   - the context runs at the song's own sample rate (chunks are not resampled one by one),
+//   - every chunk boundary lands on a sample frame of the shared clock,
+//   - a chunk that arrives late starts at the offset where it should be, never from its beginning.
+// Only the chunk playing and the next PREFETCH chunks are held in memory, whatever the song length.
 
-const RAMP_TAU = 0.03;      // setTargetAtTime time constant (s); ~95% settled after 3*tau
-const START_DELAY = 0.1;    // lead time before the shared start (s) so all sources line up
+import { Timeline } from "./timeline.js";
+
+const RAMP_TAU = 0.03;       // setTargetAtTime time constant (s) for pad changes; ~95% settled after 3*tau
+const START_LEAD = 0.1;      // seconds between scheduling and the first sound
+const SCHEDULE_AHEAD = 1.5;  // schedule chunks that start within this many seconds
+const PREFETCH = 2;          // chunks fetched ahead of the one being scheduled
+const TICK_MS = 200;
+const SEEK_FADE = 0.03;      // seconds of fade out/in around a seek
 const FEATURE_BANDS = 8;
 
 export class StemEngine {
-  constructor() {
+  /** @param {(state:string, detail?:string)=>void} onStatus  "buffering" | "running" | "error" */
+  constructor(onStatus = () => {}) {
+    this.onStatus = onStatus;
     this.ctx = null;
-    this.stems = [];          // [{id, buffer, gain:GainNode, ...meta}] -- every playable source
-    this.sources = [];
-    this.loopDur = 0;         // seconds; the shortest source, so every source loops at the same point
-    this.t0 = null;           // AudioContext time of sample 0 of the current run
+    this.song = null;          // loader song: {timeline, sources, getChunk}
+    this.tl = null;            // Timeline
+    this.sources = [];         // [{id, gain:GainNode}] in song.sources order
+    this.cache = new Map();    // local chunk k -> {promise, ready, buffers}
+    this.nodes = new Set();    // scheduled AudioBufferSourceNodes
+    this.t0 = null;            // context time of global position 0 (frame-aligned); null when not playing
+    this.nextJ = 0;            // next global chunk to schedule
+    this.minPos = 0;           // global position playback (re)started from
+    this.startPos = 0;         // song position for the next start()
+    this.runToken = 0;         // bumps on start/seek/stop so stale async work is dropped
+    this.buffering = false;
+    this.ticker = null;
     this.prevSpectrum = null;
     this.fluxMean = 0;
   }
 
-  /** Lazily create the context. Browsers only let it run after a user gesture. */
-  context() {
-    if (!this.ctx) {
-      this.ctx = new AudioContext({ latencyHint: "interactive" });
-      // Safety limiter only: unity sums reproduce the recording, which should not trip it.
-      this.limiter = new DynamicsCompressorNode(this.ctx, {
-        threshold: -1, knee: 0, ratio: 20, attack: 0.002, release: 0.1,
-      });
-      this.master = new GainNode(this.ctx, { gain: 1 });
-      this.analyser = new AnalyserNode(this.ctx, { fftSize: 2048, smoothingTimeConstant: 0.6 });
-      this.master.connect(this.limiter).connect(this.analyser).connect(this.ctx.destination);
+  /**
+   * The audio context, created on first use or recreated when a song needs another sample rate.
+   * Browsers only let it run after a user gesture; start() resumes it.
+   */
+  context(sampleRate = null) {
+    if (this.ctx && (!sampleRate || this.ctx.sampleRate === sampleRate)) return this.ctx;
+    if (this.ctx) {
+      this.stop(0);
+      this.ctx.close();
     }
+    this.ctx = new AudioContext(sampleRate ? { latencyHint: "interactive", sampleRate } : { latencyHint: "interactive" });
+    // Safety limiter only: unity sums reproduce the recording, which should not trip it.
+    this.limiter = new DynamicsCompressorNode(this.ctx, { threshold: -1, knee: 0, ratio: 20, attack: 0.002, release: 0.1 });
+    this.master = new GainNode(this.ctx, { gain: 1 });
+    this.analyser = new AnalyserNode(this.ctx, { fftSize: 2048, smoothingTimeConstant: 0.6 });
+    this.master.connect(this.limiter).connect(this.analyser).connect(this.ctx.destination);
+    this.sources = this.sources.map((s) => ({ id: s.id, gain: this.sourceGain() }));
     return this.ctx;
   }
 
-  get running() {
-    return this.sources.length > 0;
+  sourceGain() {
+    const g = new GainNode(this.ctx, { gain: 0 });
+    g.connect(this.master);
+    return g;
   }
 
-  /**
-   * Replace the loaded sources. Stops playback first.
-   * @param {{id:string, buffer:AudioBuffer}[]} sources  stems and base recordings, ids unique
-   * @returns {string[]} warnings about alignment problems
-   */
-  setStems(sources) {
+  get running() {
+    return this.t0 !== null || this.buffering;
+  }
+
+  /** Seconds per loop. */
+  get loopDur() {
+    return this.tl?.duration ?? 0;
+  }
+
+  /** Number of scheduled chunk nodes (for checks). */
+  get activeNodes() {
+    return this.nodes.size;
+  }
+
+  /** Replace the song. Stops playback; the context follows the song's sample rate. */
+  setSong(song) {
     this.stop(0);
-    for (const s of this.stems) s.gain.disconnect();
-    const ctx = this.context();
-    const warnings = [];
-    const lens = sources.map((s) => s.buffer.duration);
-    const minDur = Math.min(...lens);
-    const maxDur = Math.max(...lens);
-    // decodeAudioData resamples to the context rate, so unequal source rates show up as unequal lengths.
-    if (maxDur - minDur > 0.001) {
-      warnings.push(
-        `Stem lengths differ by ${((maxDur - minDur) * 1000).toFixed(1)} ms; ` +
-        `looping at the shortest (${minDur.toFixed(3)} s). Export stems with identical start and length.`,
-      );
-    }
-    this.loopDur = minDur;
-    this.stems = sources.map((s) => {
-      const gain = new GainNode(ctx, { gain: 0 });
-      gain.connect(this.master);
-      return { ...s, gain };
-    });
-    return warnings;
+    this.song = song;
+    this.tl = new Timeline(song.timeline);
+    this.context(this.tl.sampleRate);
+    for (const s of this.sources) s.gain.disconnect();
+    this.sources = song.sources.map((s) => ({ id: s.id, gain: this.sourceGain() }));
+    this.cache.clear();
+    this.startPos = 0;
+  }
+
+  /** Fetch (or reuse) local chunk k of every source. */
+  fetchChunk(k) {
+    let e = this.cache.get(k);
+    if (e) return e;
+    const song = this.song;
+    const ctx = this.ctx;
+    e = { ready: false, buffers: null };
+    e.promise = Promise.all(this.sources.map((s) => song.getChunk(ctx, s.id, k))).then(
+      (buffers) => { e.buffers = buffers; e.ready = true; return buffers; },
+      (err) => { if (this.cache.get(k) === e) this.cache.delete(k); throw err; },
+    );
+    e.promise.catch(() => {});   // failures surface where the chunk is awaited or retried
+    this.cache.set(k, e);
+    return e;
+  }
+
+  setBuffering(b, detail) {
+    if (b === this.buffering) return;
+    this.buffering = b;
+    this.onStatus(b ? "buffering" : "running", detail);
   }
 
   /**
    * Start every source on the same clock.
    * @param {Object<string,number>} gains  source id -> gain from the first sample (missing = 0)
+   * @param {number} pos  song position in seconds (default: where it last stopped or was seeked to)
    */
-  async start(gains) {
-    const ctx = this.context();
+  async start(gains, pos = this.startPos) {
+    const ctx = this.context(this.tl.sampleRate);
     await ctx.resume();
-    this.stop(0);
-    this.master.gain.cancelScheduledValues(ctx.currentTime);
-    this.master.gain.setValueAtTime(1, ctx.currentTime);
-    const t0 = ctx.currentTime + START_DELAY;
-    this.sources = this.stems.map((s) => {
+    this.halt(0);
+    for (const s of this.sources) {
       s.gain.gain.cancelScheduledValues(ctx.currentTime);
       s.gain.gain.setValueAtTime(gains[s.id] ?? 0, ctx.currentTime);
-      const src = new AudioBufferSourceNode(ctx, { buffer: s.buffer, loop: true });
-      src.loopStart = 0;
-      src.loopEnd = this.loopDur;
-      src.connect(s.gain);
-      src.start(t0);
-      return src;
-    });
-    this.t0 = t0;
+    }
+    await this.beginAt(pos);
   }
 
-  /** Fade out, then stop. Only for rehearsal; the show path never calls this. */
-  stop(fade = 0.3) {
-    if (!this.ctx || !this.sources.length) return;
+  /** Begin playback at song position pos once its chunk is in memory. */
+  async beginAt(pos) {
+    const token = ++this.runToken;
+    const j = this.tl.chunkAt(pos);
+    this.startPos = pos;
+    this.setBuffering(true);
+    try {
+      await this.fetchChunk(this.tl.local(j)).promise;
+    } catch (e) {
+      if (token === this.runToken) {
+        this.buffering = false;
+        this.onStatus("error", e.message);
+      }
+      return;
+    }
+    if (token !== this.runToken) return;   // a newer start/seek/stop took over
     const now = this.ctx.currentTime;
-    const end = now + fade;
+    this.t0 = this.tl.frame(now + START_LEAD - pos);
+    this.minPos = pos;
+    this.nextJ = j;
+    // Fade in from the first sample (also covers the seek fade-out that preceded this).
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setValueAtTime(0, now);
+    this.master.gain.linearRampToValueAtTime(1, this.t0 + pos + SEEK_FADE);
+    this.setBuffering(false);
+    this.schedule();
+    clearInterval(this.ticker);
+    this.ticker = setInterval(() => this.schedule(), TICK_MS);
+  }
+
+  /** Schedule every chunk that starts soon, prefetch the ones after, and drop chunks no longer needed. */
+  schedule() {
+    if (this.t0 === null) return;
+    const now = this.ctx.currentTime;
+    for (let d = 0; d <= PREFETCH; d++) this.fetchChunk(this.tl.local(this.nextJ + d));
+    while (this.t0 + this.tl.chunkStart(this.nextJ) < now + SCHEDULE_AHEAD) {
+      const k = this.tl.local(this.nextJ);
+      const e = this.cache.get(k);
+      if (!e?.ready) {
+        this.setBuffering(true, `waiting for chunk ${k}`);
+        break;
+      }
+      this.setBuffering(false);
+      const chunkPos = this.tl.chunkStart(this.nextJ);
+      const dur = this.tl.chunkLength(k) / this.tl.sampleRate;
+      // Late or mid-chunk starts keep their place on the clock: skip into the chunk instead of delaying it.
+      const fromPos = Math.max(chunkPos, this.minPos, now + 0.02 - this.t0);
+      const offset = fromPos - chunkPos;
+      if (offset < dur) {
+        e.buffers.forEach((buffer, i) => {
+          const node = new AudioBufferSourceNode(this.ctx, { buffer });
+          node.connect(this.sources[i].gain);
+          node.start(this.t0 + fromPos, offset, dur - offset);
+          node.onended = () => { this.nodes.delete(node); node.disconnect(); };
+          this.nodes.add(node);
+        });
+      }
+      this.nextJ++;
+    }
+    const keep = new Set(Array.from({ length: PREFETCH + 1 }, (_, d) => this.tl.local(this.nextJ + d)));
+    for (const k of this.cache.keys()) if (!keep.has(k)) this.cache.delete(k);
+  }
+
+  /** Stop scheduled nodes (after `fade` seconds) without touching the start position. */
+  halt(fade) {
+    this.runToken++;
+    clearInterval(this.ticker);
+    this.ticker = null;
+    if (this.ctx) {
+      const end = this.ctx.currentTime + fade;
+      for (const n of this.nodes) {
+        try { n.stop(end); } catch { /* already stopped */ }
+      }
+    }
+    this.nodes.clear();
+    this.t0 = null;
+    this.buffering = false;
+  }
+
+  /** Fade out, then stop; the next start() resumes from here. */
+  stop(fade = 0.3) {
+    if (!this.ctx || !this.running) return;
+    const pos = this.playhead();
+    const now = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
-    this.master.gain.linearRampToValueAtTime(0, end);
-    for (const src of this.sources) src.stop(end + 0.01);
-    this.sources = [];
-    this.t0 = null;
+    this.master.gain.linearRampToValueAtTime(0, now + fade);
+    this.halt(fade);
+    if (pos !== null) this.startPos = pos;
   }
 
-  /** Seconds into the loop, or null when stopped. */
+  /** Jump to song position pos (seconds). While stopped, only sets where start() begins. */
+  async seek(pos) {
+    pos = Math.min(Math.max(0, pos), this.loopDur - 1e-3);
+    if (!this.running) {
+      this.startPos = pos;
+      return;
+    }
+    const now = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(now);
+    this.master.gain.setValueAtTime(this.master.gain.value, now);
+    this.master.gain.linearRampToValueAtTime(0, now + SEEK_FADE);
+    this.halt(SEEK_FADE);
+    await this.beginAt(pos);
+  }
+
+  /** Seconds into the song, or null when stopped. */
   playhead() {
-    if (this.t0 === null) return null;
-    const t = this.ctx.currentTime - this.t0;
-    return t <= 0 ? 0 : t % this.loopDur;
+    if (this.t0 === null) return this.buffering ? this.startPos : null;
+    const g = this.ctx.currentTime - this.t0;
+    return this.tl.wrap(Math.max(g, this.minPos));
   }
 
   /**
    * Context time at which a change should land.
-   * @param {number[]|null} grid  sorted loop-relative times (beats or downbeats), or null for now
+   * @param {number[]|null} grid  sorted song-relative times (beats or downbeats), or null for now
    */
   nextBoundary(grid) {
     const now = this.ctx.currentTime;
     const ph = this.playhead();
-    if (!grid || !grid.length || ph === null) return now;
+    if (!grid || !grid.length || ph === null || this.t0 === null) return now;
     // Never cross the loop seam late: past the last grid point, the change lands on the seam.
     const next = grid.find((t) => t > ph + 1e-3) ?? this.loopDur;
     return now + Math.min(next, this.loopDur) - ph;
@@ -132,7 +263,7 @@ export class StemEngine {
   applyGains(gains, when) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    for (const s of this.stems) {
+    for (const s of this.sources) {
       const p = s.gain.gain;
       p.cancelScheduledValues(now);
       p.setTargetAtTime(gains[s.id] ?? 0, Math.max(when, now), RAMP_TAU);
