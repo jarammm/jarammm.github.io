@@ -85,6 +85,8 @@ async function load(loader) {
     for (const r of radios("pool")) r.disabled = !state.availablePools().includes(r.value);
 
     renderGrid(stems);
+    renderMeter(stems);
+    ui.exportInfo.textContent = "—";
     ui.title.textContent = m.title;
     renderCredit(m.credits);
     ui.quantize.disabled = !beatGrid("beat");
@@ -371,8 +373,42 @@ function download(channels, sampleRate, peak, setting) {
 
 // ---------- readout and feature stream ----------
 
-const bars = Array.from({ length: 8 }, () => document.createElement("i"));
-ui.meter.replaceChildren(...bars);
+const METER_FLOOR_DB = -60;    // bar height runs from -60 dBFS (empty) to 0 dBFS (full)
+let meterBars = new Map();     // stem id -> bar element
+
+/** One bar per pad, in pad order and colour, labelled with the stem name. */
+function renderMeter(stems) {
+  ui.meter.style.setProperty("--m", stems.length);
+  meterBars = new Map();
+  ui.meter.replaceChildren(...stems.map((s) => {
+    const col = document.createElement("div");
+    col.className = "col";
+    col.title = s.label;
+    const well = document.createElement("div");
+    well.className = "well";
+    const bar = document.createElement("i");
+    bar.style.setProperty("--c", s.color);
+    well.append(bar);
+    const label = Object.assign(document.createElement("span"), { textContent: s.label });
+    col.append(well, label);
+    meterBars.set(s.id, bar);
+    return col;
+  }));
+}
+
+/**
+ * Level of each stem in what is heard now, in [0, 1]: the stem's own RMS on a dB scale if the stem
+ * is part of the output (its pad is lit), else 0. Pads light when a change actually lands, so this
+ * follows quantized changes too.
+ */
+function heardLevels() {
+  const raw = engine.sourceLevels();
+  return Object.fromEntries(manifest.stems.map((s) => {
+    const lit = pads.get(s.id)?.classList.contains("audible");
+    const db = 20 * Math.log10((raw[s.id] ?? 0) + 1e-9);
+    return [s.id, lit ? Math.min(1, Math.max(0, (db - METER_FLOOR_DB) / -METER_FLOOR_DB)) : 0];
+  }));
+}
 
 function fmt(t) {
   return `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
@@ -391,17 +427,23 @@ function frame() {
   } else {
     ui.position.textContent = "—";
   }
-  if (lastFeatures) {
-    lastFeatures.bands.forEach((v, i) => { bars[i].style.height = `${Math.max(2, v * 100)}%`; });
-    for (const b of pads.values()) b.style.setProperty("--level", Math.min(1, lastFeatures.rms * 3).toFixed(3));
+  if (lastFeatures?.levels) {
+    for (const [id, v] of Object.entries(lastFeatures.levels)) {
+      const bar = meterBars.get(id);
+      if (bar) bar.style.height = `${Math.max(2, v * 100)}%`;
+      pads.get(id)?.style.setProperty("--level", v.toFixed(3));
+    }
   }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
 setInterval(() => {
-  if (!engine.running) return;
-  lastFeatures = engine.features();
+  if (!engine.running || !manifest) {
+    if (lastFeatures) lastFeatures.levels = Object.fromEntries([...meterBars.keys()].map((id) => [id, 0]));
+    return;
+  }
+  lastFeatures = { ...engine.features(), levels: heardLevels() };
   const ph = engine.playhead();
   bridge?.sendFeatures({ ...lastFeatures, playhead_sec: ph, section: sectionAt(ph), ts: Date.now() / 1000 });
 }, FEATURE_INTERVAL_MS);

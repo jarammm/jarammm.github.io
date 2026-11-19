@@ -25,7 +25,7 @@ export class StemEngine {
     this.ctx = null;
     this.song = null;          // loader song: {timeline, sources, getChunk}
     this.tl = null;            // Timeline
-    this.sources = [];         // [{id, gain:GainNode}] in song.sources order
+    this.sources = [];         // [{id, pre, gain, analyser}] in song.sources order (see makeSource)
     this.cache = new Map();    // local chunk k -> {promise, ready, buffers}
     this.nodes = new Set();    // scheduled AudioBufferSourceNodes
     this.t0 = null;            // context time of global position 0 (frame-aligned); null when not playing
@@ -55,14 +55,22 @@ export class StemEngine {
     this.master = new GainNode(this.ctx, { gain: 1 });
     this.analyser = new AnalyserNode(this.ctx, { fftSize: 2048, smoothingTimeConstant: 0.6 });
     this.master.connect(this.limiter).connect(this.analyser).connect(this.ctx.destination);
-    this.sources = this.sources.map((s) => ({ id: s.id, gain: this.sourceGain() }));
+    this.sources = this.sources.map((s) => this.makeSource(s.id));
     return this.ctx;
   }
 
-  sourceGain() {
-    const g = new GainNode(this.ctx, { gain: 0 });
-    g.connect(this.master);
-    return g;
+  /**
+   * Per-source graph: chunk nodes -> pre -> gain -> master, with an analyser on `pre`.
+   * The analyser sees the stem's own signal before its gain, because in subtract mode an unpressed
+   * stem is heard inside the recording while its own source sits at gain 0.
+   */
+  makeSource(id) {
+    const pre = new GainNode(this.ctx, { gain: 1 });
+    const gain = new GainNode(this.ctx, { gain: 0 });
+    const analyser = new AnalyserNode(this.ctx, { fftSize: 1024 });
+    pre.connect(gain).connect(this.master);
+    pre.connect(analyser);
+    return { id, pre, gain, analyser };
   }
 
   get running() {
@@ -85,8 +93,8 @@ export class StemEngine {
     this.song = song;
     this.tl = new Timeline(song.timeline);
     this.context(this.tl.sampleRate);
-    for (const s of this.sources) s.gain.disconnect();
-    this.sources = song.sources.map((s) => ({ id: s.id, gain: this.sourceGain() }));
+    for (const s of this.sources) { s.pre.disconnect(); s.gain.disconnect(); }
+    this.sources = song.sources.map((s) => this.makeSource(s.id));
     this.cache.clear();
     this.startPos = 0;
   }
@@ -180,7 +188,7 @@ export class StemEngine {
       if (offset < dur) {
         e.buffers.forEach((buffer, i) => {
           const node = new AudioBufferSourceNode(this.ctx, { buffer });
-          node.connect(this.sources[i].gain);
+          node.connect(this.sources[i].pre);
           node.start(this.t0 + fromPos, offset, dur - offset);
           node.onended = () => { this.nodes.delete(node); node.disconnect(); };
           this.nodes.add(node);
@@ -268,6 +276,23 @@ export class StemEngine {
       p.cancelScheduledValues(now);
       p.setTargetAtTime(gains[s.id] ?? 0, Math.max(when, now), RAMP_TAU);
     }
+  }
+
+  /**
+   * RMS of each source's own signal (before its gain) over the last ~23 ms.
+   * @returns {Object<string,number>}  source id -> linear RMS (0 when stopped)
+   */
+  sourceLevels() {
+    const buf = new Float32Array(1024);                       // (fftSize,)
+    const out = {};
+    for (const s of this.sources) {
+      if (this.t0 === null) { out[s.id] = 0; continue; }
+      s.analyser.getFloatTimeDomainData(buf);
+      let sq = 0;
+      for (const v of buf) sq += v * v;
+      out[s.id] = Math.sqrt(sq / buf.length);
+    }
+    return out;
   }
 
   /**

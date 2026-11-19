@@ -33,7 +33,9 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
   one jumps to its start. Stop then Start resumes where it stopped.
 - Quantize (off / beat / bar) applies a change on the next beat or downbeat of the song's beat track
   (`beats`/`downbeats`), or of a constant `bpm` grid when the song has none.
-- The 8-bar meter shows the output level in 8 log-spaced bands; the same values go to the bridge.
+- The meter under the grid has one bar per pad (same colour and order): the stem's level in what is heard now,
+  from −60 dBFS to 0 dBFS, and empty when the stem is out of the output (removed, or not added).
+  Each pad's glow follows the same level.
 
 ## Songs
 
@@ -114,6 +116,7 @@ The client reconnects with backoff and replays the latest state after reconnecti
 
 // ~30 Hz while playing
 { "type": "features", "rms": 0.18, "bands": [8 values in 0..1, low→high], "onset": 1.7,
+  "levels": { "vocals": 0.66, "drums_perc": 0, … },
   "playhead_sec": 12.33, "section": "verse1", "ts": 1763540000.15 }
 ```
 
@@ -121,7 +124,9 @@ The audio itself is not sent. The bridge holds the same files and renders the re
 `playhead_sec`, which keeps the link light and the result deterministic. `mask`/`audible` are the pool stems
 that still sound, for display; with a recording as base they ignore what the separation missed.
 
-`onset` is the positive spectral flux divided by its running mean; values well above 1 mark hits.
+`bands` are the output level in 8 log-spaced frequency bands from 40 Hz up. `levels` are the per-stem heard
+levels shown by the meter (0..1). `onset` is the positive spectral flux divided by its running mean; values
+well above 1 mark hits.
 
 ## Development
 

@@ -147,8 +147,12 @@ button:focus-visible, .seg input:focus-visible + span, .pad:focus-visible { outl
 }
 .row { display: flex; gap: 12px; }
 .k { color: var(--muted); min-width: 72px; }
-.meter { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; height: 36px; align-items: end; }
-.meter i { display: block; background: var(--accent); border-radius: 2px; height: 2%; transition: height .05s linear; }
+/* One bar per stem: its level in what is heard now (empty when the stem is out of the output). */
+.meter { display: grid; grid-template-columns: repeat(var(--m, 8), 1fr); gap: 4px; }
+.meter .col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.meter .well { height: 40px; display: flex; align-items: flex-end; background: var(--pad-off); border-radius: 2px; }
+.meter i { display: block; width: 100%; background: var(--c, var(--accent)); border-radius: 2px; height: 2%; transition: height .05s linear; }
+.meter span { font-size: .62rem; color: var(--muted); text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .warnings { margin: 0; padding-left: 18px; color: var(--warn); font-size: .85rem; }
 .warnings:empty { display: none; }
 
