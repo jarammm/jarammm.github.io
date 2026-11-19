@@ -12,7 +12,8 @@ const fakeCtx = {
   },
 };
 
-const { stems } = renderDemo(fakeCtx);
+const song = renderDemo(fakeCtx);
+const stems = await Promise.all(song.manifest.stems.map(async (m) => ({ ...m, buffer: await song.getChunk(null, m.id, 0) })));
 
 test("nine stems including the two voice stems, all the same length", () => {
   assert.equal(stems.length, 9);

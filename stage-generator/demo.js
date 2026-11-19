@@ -2,6 +2,8 @@
 // so the public page needs no audio files. Layout mirrors the show song:
 // seven instrument stems plus two voice stems (vocals, ensemble).
 
+import { normalizeManifest, songFromBuffers } from "./loader.js";
+
 export const DEMO_MANIFEST = Object.freeze({
   title: "Demo loop (synthesized)",
   bpm: 120,
@@ -200,12 +202,13 @@ const RENDER = {
 /**
  * Render all demo stems at the context's sample rate.
  * @param {BaseAudioContext} ctx
- * @returns {{manifest:object, stems:{id,label,color,buffer:AudioBuffer}[]}}
+ * @returns {object}  loader song (one in-memory chunk per stem), see loader.js
  */
 export function renderDemo(ctx) {
   const sr = ctx.sampleRate;
   const len = Math.round(LOOP * sr);
-  const stems = DEMO_MANIFEST.stems.map((meta) => {
+  const buffers = {};
+  for (const meta of DEMO_MANIFEST.stems) {
     const data = new Float32Array(len);                   // (LOOP*sr,)
     RENDER[meta.id](data, sr);
     let peak = 0;
@@ -213,7 +216,7 @@ export function renderDemo(ctx) {
     if (peak > 0) for (let i = 0; i < len; i++) data[i] *= PEAK / peak;
     const buffer = ctx.createBuffer(1, len, sr);
     buffer.copyToChannel(data, 0);
-    return { ...meta, buffer };
-  });
-  return { manifest: DEMO_MANIFEST, stems };
+    buffers[meta.id] = buffer;
+  }
+  return songFromBuffers(normalizeManifest(DEMO_MANIFEST, { requireFiles: false }), buffers);
 }
