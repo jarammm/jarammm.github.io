@@ -32,7 +32,11 @@ const ui = {
 };
 const radios = (name) => [...document.querySelectorAll(`input[name="${name}"]`)];
 
-const engine = new StemEngine((s, detail) => setChip(ui.audio, "audio", s, detail));
+const engine = new StemEngine((s, detail) => {
+  setChip(ui.audio, "audio", s, detail);
+  // Phones cannot hover the chip for its tooltip, so errors also go to the visible list.
+  if (s === "error") showWarnings([`Audio error: ${detail ?? "unknown"}`]);
+});
 let manifest = null;
 let song = null;               // loader song currently in the engine
 let seeking = false;           // the seek bar is being dragged
@@ -257,7 +261,38 @@ function apply() {
 
 // ---------- transport ----------
 
+// iOS mutes Web Audio while the ring/silent switch is on, unless the page's audio session is "playback".
+// Safari 17+ lets the page say so (navigator.audioSession); older iOS switches the session when an
+// <audio> element plays, so a looping silent clip is played alongside. Both must start inside the tap.
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let sessionKeeper = null;
+
+/** 0.5 s of 16-bit mono silence as a WAV blob URL. */
+function silentWavUrl() {
+  const n = 4000;  // 0.5 s at 8 kHz
+  const v = new DataView(new ArrayBuffer(44 + n * 2));
+  const str = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true);
+  v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([v.buffer], { type: "audio/wav" }));
+}
+
+function claimPlaybackSession() {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+  } catch { /* not supported */ }
+  if (!IS_IOS || navigator.audioSession) return;
+  if (!sessionKeeper) {
+    sessionKeeper = new Audio(silentWavUrl());
+    sessionKeeper.loop = true;
+    sessionKeeper.setAttribute("playsinline", "");
+  }
+  sessionKeeper.play().catch(() => {});
+}
+
 async function start() {
+  claimPlaybackSession();   // before any await: it has to happen within the user's tap
   ui.start.disabled = true;
   ui.stop.disabled = false;
   await engine.start(sourceGains());
@@ -265,6 +300,7 @@ async function start() {
 }
 
 function stop() {
+  sessionKeeper?.pause();
   engine.stop();
   ui.start.disabled = false;
   ui.stop.disabled = true;
