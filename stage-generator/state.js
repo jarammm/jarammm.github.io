@@ -2,8 +2,9 @@
 // Kept free of DOM and Web Audio so it can be unit-tested with `node --test`.
 //
 // A setting is method x pool:
-//   method SUBTRACT: start from the pool's base recording; a pressed pad removes its stem (gain -1).
-//                    Without a base recording, the base is the sum of the pool's stems instead.
+//   method SUBTRACT: start from the pool's base; a pressed pad removes its stem (gain -1).
+//                    A base is a signed sum of sources, e.g. accompaniment = rec:mix - vocals - ensemble.
+//                    Without a base, the pool starts from the sum of its stems instead.
 //   method ADD:      start from silence; a pressed pad adds its stem (gain +1).
 //   pool:            which stems the pads act on -- all stems (mix), instrument stems (accompaniment)
 //                    or voice stems (vocals). Pads outside the pool are inactive.
@@ -29,14 +30,17 @@ export function inPool(group, pool) {
 export class ControllerState {
   /**
    * @param {{id:string, group?:string}[]} stems  pad order; order defines the mask bit order
-   * @param {{mode?:string, pool?:string, bases?:Iterable<string>}} opts  bases = pools that have a base recording
+   * @param {{mode?:string, pool?:string, bases?:Object<string,Object<string,number>>}} opts
+   *        bases: pool -> {source id: coefficient}; source ids are stem ids or recording ids ("rec:mix")
    */
-  constructor(stems, { mode = MODES.SUBTRACT, pool = POOLS.MIX, bases = [] } = {}) {
+  constructor(stems, { mode = MODES.SUBTRACT, pool = POOLS.MIX, bases = {} } = {}) {
     const ids = stems.map((s) => s.id);
     if (new Set(ids).size !== ids.length) throw new Error("duplicate stem ids");
     this.stems = stems.map((s) => ({ id: s.id, group: s.group ?? null }));
     this.stemIds = ids;
-    this.bases = new Set(bases);
+    this.bases = new Map(Object.entries(bases));
+    // Every source any setting can touch, so gains() always reports all of them.
+    this.sourceIds = [...new Set([...ids, ...[...this.bases.values()].flatMap((e) => Object.keys(e))])];
     this.selected = new Set();
     this.mode = MODES.SUBTRACT;
     this.pool = POOLS.MIX;
@@ -88,24 +92,21 @@ export class ControllerState {
   }
 
   /**
-   * Gain for every source.
-   * @returns {{stems: Object<string,number>, bases: Object<string,number>}}  stem gains in {-1,0,1}, base gains in {0,1}
+   * Gain for every source (stems and recordings).
+   * @returns {Object<string,number>}  source id -> gain, e.g. {"rec:mix": 1, vocals: -1, ...}
    */
   gains() {
+    const g = Object.fromEntries(this.sourceIds.map((id) => [id, 0]));
     const base = this.base();
-    const stems = {};
+    if (base) for (const [id, c] of Object.entries(this.bases.get(base))) g[id] += c;
     for (const { id, group } of this.stems) {
-      const active = inPool(group, this.pool);
+      if (!inPool(group, this.pool)) continue;
       const sel = this.selected.has(id);
-      let g = 0;
-      if (!active) g = 0;
-      else if (this.mode === MODES.ADD) g = sel ? 1 : 0;
-      else if (base) g = sel ? -1 : 0;        // base - pressed stems
-      else g = sel ? 0 : 1;                   // no recorded base: sum of unpressed stems
-      stems[id] = g;
+      if (this.mode === MODES.ADD) g[id] += sel ? 1 : 0;
+      else if (base) g[id] -= sel ? 1 : 0;    // base - pressed stems
+      else g[id] += sel ? 0 : 1;              // no base: sum of unpressed stems
     }
-    const bases = Object.fromEntries([...this.bases].map((p) => [p, p === base ? 1 : 0]));
-    return { stems, bases };
+    return g;
   }
 
   /** Pool stems that still sound (approximately, for display): pressed in add mode, unpressed in subtract mode. */
