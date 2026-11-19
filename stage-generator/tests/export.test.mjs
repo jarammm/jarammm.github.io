@@ -1,7 +1,7 @@
 // Tests for mix export: range choice, mixing rule, gain fitting, WAV encoding and naming.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exportRange, mixAudible, fitGain, encodeWav16, exportFileName } from "../export.js";
+import { exportRange, mixGains, fitGain, encodeWav16, exportFileName } from "../export.js";
 
 /** AudioBuffer stand-in built from per-channel arrays. */
 function buf(chans, sampleRate = 10) {
@@ -18,26 +18,35 @@ test("range is the section under the playhead, else the whole loop", () => {
   assert.deepEqual(exportRange(SECTIONS, 6, 5), { start: 4, end: 6, section: "B" }); // clipped to loop
 });
 
-test("sums only audible stems; mono stems feed both channels", () => {
+test("sums sources times their gains; mono sources feed both channels", () => {
   const stems = [
     { id: "a", buffer: buf([[0.1, 0.1, 0.1, 0.1]]) },
     { id: "b", buffer: buf([[0.2, 0.2, 0.2, 0.2], [0.3, 0.3, 0.3, 0.3]]) },
     { id: "c", buffer: buf([[0.5, 0.5, 0.5, 0.5]]) },
   ];
-  const { channels, peak } = mixAudible(stems, new Set(["a", "b"]), 0.1, 0.3); // samples 1..2
+  const { channels, peak } = mixGains(stems, { a: 1, b: 1, c: 0 }, 0.1, 0.3); // samples 1..2
   assert.equal(channels.length, 2);
   assert.deepEqual([...channels[0]].map((x) => +x.toFixed(4)), [0.3, 0.3]);
   assert.deepEqual([...channels[1]].map((x) => +x.toFixed(4)), [0.4, 0.4]);
   assert.ok(Math.abs(peak - 0.4) < 1e-6);
 });
 
+test("negative gain subtracts a stem from a base", () => {
+  const sources = [
+    { id: "base:mix", buffer: buf([[0.5, 0.5, 0.5]]) },
+    { id: "v", buffer: buf([[0.2, 0.2, 0.2]]) },
+  ];
+  const { channels } = mixGains(sources, { "base:mix": 1, v: -1 }, 0, 0.3);
+  assert.deepEqual([...channels[0]].map((x) => +x.toFixed(4)), [0.3, 0.3, 0.3]);
+});
+
 test("never reads past the shortest stem (the loop seam)", () => {
   const stems = [{ id: "a", buffer: buf([[1, 1, 1]]) }, { id: "b", buffer: buf([[1, 1, 1, 1, 1]]) }];
-  assert.equal(mixAudible(stems, new Set(["a", "b"]), 0, 0.5).channels[0].length, 3);
+  assert.equal(mixGains(stems, { a: 1, b: 1 }, 0, 0.5).channels[0].length, 3);
 });
 
 test("silence exports as silence at unity gain", () => {
-  const { channels, peak } = mixAudible([{ id: "a", buffer: buf([[0.5, 0.5]]) }], new Set(), 0, 0.2);
+  const { channels, peak } = mixGains([{ id: "a", buffer: buf([[0.5, 0.5]]) }], {}, 0, 0.2);
   assert.equal(peak, 0);
   assert.deepEqual(fitGain(peak), { gain: 1, db: 0 });
   assert.deepEqual([...channels[0]], [0, 0]);
@@ -64,7 +73,10 @@ test("WAV header and samples are correct", () => {
 });
 
 test("file name carries song, section, mask and any gain", () => {
-  assert.equal(exportFileName({ song: "Demo loop (synthesized)", section: "A", mask: "101", db: 0 }), "demo-loop-synthesized_A_101.wav");
-  assert.equal(exportFileName({ song: "S", section: "verse 1", mask: "0", db: 0 }), "s_verse-1_0.wav");
-  assert.equal(exportFileName({ song: "X", section: null, mask: "1", db: -1.8 }), "x_loop_1_gain-1.8dB.wav");
+  assert.equal(exportFileName({ song: "Demo loop (synthesized)", mode: "add", pool: "vocals", section: "A", selectedMask: "101", db: 0 }),
+    "demo-loop-synthesized_add-vocals_A_sel101.wav");
+  assert.equal(exportFileName({ song: "S", mode: "subtract", pool: "mix", section: "verse 1", selectedMask: "0", db: 0 }),
+    "s_subtract-mix_verse-1_sel0.wav");
+  assert.equal(exportFileName({ song: "X", mode: "add", pool: "mix", section: null, selectedMask: "1", db: -1.8 }),
+    "x_add-mix_loop_sel1_gain-1.8dB.wav");
 });

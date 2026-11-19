@@ -1,10 +1,16 @@
-// Pure controller state: which pads are selected and which stems are audible.
+// Pure controller state: which pads are pressed, and the gain every source should have.
 // Kept free of DOM and Web Audio so it can be unit-tested with `node --test`.
+//
+// A setting is method x pool:
+//   method SUBTRACT: start from the pool's base recording; a pressed pad removes its stem (gain -1).
+//                    Without a base recording, the base is the sum of the pool's stems instead.
+//   method ADD:      start from silence; a pressed pad adds its stem (gain +1).
+//   pool:            which stems the pads act on -- all stems (mix), instrument stems (accompaniment)
+//                    or voice stems (vocals). Pads outside the pool are inactive.
 
-export const MODES = Object.freeze({
-  SUBTRACT: "subtract", // start from the full mix; a selected pad removes its stem
-  ADD: "add",           // start from silence; a selected pad adds its stem
-});
+export const MODES = Object.freeze({ SUBTRACT: "subtract", ADD: "add" });
+export const POOLS = Object.freeze({ MIX: "mix", ACCOMPANIMENT: "accompaniment", VOCALS: "vocals" });
+export const GROUPS = Object.freeze({ ACCOMPANIMENT: "accompaniment", VOCALS: "vocals" });
 
 // Keyboard shortcuts in pad order (row-major). Pads beyond this list get no key.
 export const PAD_KEYS = "1234567890QWERTYUIOPASDFGHJKLZXCVBNM".split("");
@@ -15,28 +21,58 @@ export function gridSize(count) {
   return Math.ceil(Math.sqrt(count));
 }
 
+/** Is a stem of this group part of the pool? Ungrouped stems belong to the mix pool only. */
+export function inPool(group, pool) {
+  return pool === POOLS.MIX || group === pool;
+}
+
 export class ControllerState {
   /**
-   * @param {string[]} stemIds  stem ids in pad order; order defines the mask bit order
-   * @param {string} mode       one of MODES
+   * @param {{id:string, group?:string}[]} stems  pad order; order defines the mask bit order
+   * @param {{mode?:string, pool?:string, bases?:Iterable<string>}} opts  bases = pools that have a base recording
    */
-  constructor(stemIds, mode = MODES.SUBTRACT) {
-    if (new Set(stemIds).size !== stemIds.length) throw new Error("duplicate stem ids");
-    this.stemIds = [...stemIds];
+  constructor(stems, { mode = MODES.SUBTRACT, pool = POOLS.MIX, bases = [] } = {}) {
+    const ids = stems.map((s) => s.id);
+    if (new Set(ids).size !== ids.length) throw new Error("duplicate stem ids");
+    this.stems = stems.map((s) => ({ id: s.id, group: s.group ?? null }));
+    this.stemIds = ids;
+    this.bases = new Set(bases);
     this.selected = new Set();
+    this.mode = MODES.SUBTRACT;
+    this.pool = POOLS.MIX;
     this.setMode(mode);
+    this.setPool(pool);
   }
 
-  /** Switching mode clears the selection so the result is the mode's start state. */
+  /** Pools that have at least one stem. */
+  availablePools() {
+    return Object.values(POOLS).filter((p) => this.stems.some((s) => inPool(s.group, p)));
+  }
+
+  /** Switching method clears the selection so the result is the method's start state. */
   setMode(mode) {
     if (!Object.values(MODES).includes(mode)) throw new Error(`unknown mode: ${mode}`);
     this.mode = mode;
     this.selected.clear();
   }
 
-  /** Flip one pad. Returns the new selected flag for that pad. */
+  /** Switching pool clears the selection too: pressed pads may not exist in the new pool. */
+  setPool(pool) {
+    if (!Object.values(POOLS).includes(pool)) throw new Error(`unknown pool: ${pool}`);
+    if (!this.availablePools().includes(pool)) throw new Error(`no stems in pool: ${pool}`);
+    this.pool = pool;
+    this.selected.clear();
+  }
+
+  isActive(id) {
+    const s = this.stems.find((x) => x.id === id);
+    if (!s) throw new Error(`unknown stem: ${id}`);
+    return inPool(s.group, this.pool);
+  }
+
+  /** Flip one pad. Pads outside the pool do nothing. Returns the new selected flag. */
   toggle(id) {
-    if (!this.stemIds.includes(id)) throw new Error(`unknown stem: ${id}`);
+    if (!this.isActive(id)) return false;
     if (this.selected.has(id)) this.selected.delete(id);
     else this.selected.add(id);
     return this.selected.has(id);
@@ -46,27 +82,56 @@ export class ControllerState {
     this.selected.clear();
   }
 
-  isAudible(id) {
-    const sel = this.selected.has(id);
-    return this.mode === MODES.ADD ? sel : !sel;
+  /** The base recording in use, or null (add mode, or subtract without a recorded base). */
+  base() {
+    return this.mode === MODES.SUBTRACT && this.bases.has(this.pool) ? this.pool : null;
   }
 
-  /** Audible stem ids in pad order. */
+  /**
+   * Gain for every source.
+   * @returns {{stems: Object<string,number>, bases: Object<string,number>}}  stem gains in {-1,0,1}, base gains in {0,1}
+   */
+  gains() {
+    const base = this.base();
+    const stems = {};
+    for (const { id, group } of this.stems) {
+      const active = inPool(group, this.pool);
+      const sel = this.selected.has(id);
+      let g = 0;
+      if (!active) g = 0;
+      else if (this.mode === MODES.ADD) g = sel ? 1 : 0;
+      else if (base) g = sel ? -1 : 0;        // base - pressed stems
+      else g = sel ? 0 : 1;                   // no recorded base: sum of unpressed stems
+      stems[id] = g;
+    }
+    const bases = Object.fromEntries([...this.bases].map((p) => [p, p === base ? 1 : 0]));
+    return { stems, bases };
+  }
+
+  /** Pool stems that still sound (approximately, for display): pressed in add mode, unpressed in subtract mode. */
   audible() {
-    return this.stemIds.filter((id) => this.isAudible(id));
+    return this.stems
+      .filter(({ id, group }) => inPool(group, this.pool) && (this.mode === MODES.ADD) === this.selected.has(id))
+      .map((s) => s.id);
   }
 
-  /** Audible set as a '0'/'1' string in pad order, e.g. "1011". Used as a cache key downstream. */
-  mask() {
-    return this.stemIds.map((id) => (this.isAudible(id) ? "1" : "0")).join("");
+  /** '0'/'1' per pad in pad order. */
+  mask(ids) {
+    const set = new Set(ids);
+    return this.stemIds.map((id) => (set.has(id) ? "1" : "0")).join("");
   }
 
   snapshot() {
+    const selected = this.stemIds.filter((id) => this.selected.has(id));
     return {
       mode: this.mode,
-      selected: this.stemIds.filter((id) => this.selected.has(id)),
+      pool: this.pool,
+      base: this.base(),
+      selected,
+      selected_mask: this.mask(selected),
       audible: this.audible(),
-      mask: this.mask(),
+      mask: this.mask(this.audible()),
+      gains: this.gains(),
     };
   }
 }

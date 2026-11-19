@@ -1,8 +1,9 @@
-// Export the currently audible mix as a WAV file for offline model and prompt tests.
+// Export what the controller plays as a WAV file, for offline model and prompt tests.
 // The mixing rule must match the show bridge's mixer.render so that an exported file and a
-// bridge render of the same (mask, section) are the same audio:
-//   plain sum of audible stems at gain 1, no limiter; if the sum exceeds full scale,
-//   the whole file is scaled down (never clipped) and the applied gain goes into the file name.
+// bridge render of the same setting are the same audio:
+//   sum of every source (stems and base recordings) times its gain (+1, -1 or 0), no limiter;
+//   if the sum exceeds full scale, the whole file is scaled down (never clipped) and the applied
+//   gain goes into the file name.
 
 const MAX_CHANNELS = 2;
 
@@ -20,28 +21,29 @@ export function exportRange(sections, loopDur, playhead) {
 }
 
 /**
- * Sum the audible stems over [start, end).
- * @param {{id:string, buffer:AudioBuffer}[]} stems  buffers share one sample rate (decoded by one context)
- * @param {Set<string>} audible
+ * Sum sources times their gains over [start, end).
+ * @param {{id:string, buffer:AudioBuffer}[]} sources  buffers share one sample rate (decoded by one context)
+ * @param {Object<string,number>} gains  id -> gain; missing or 0 means the source is skipped
  * @returns {{channels: Float32Array[], sampleRate:number, peak:number}}
- *          channels: (C,) arrays of (end-start)*sr samples, C = max stem channels capped at 2
+ *          channels: (C,) arrays of (end-start)*sr samples, C = max source channels capped at 2
  */
-export function mixAudible(stems, audible, start, end) {
-  const sr = stems[0].buffer.sampleRate;
-  const loopLen = Math.min(...stems.map((s) => s.buffer.length));  // loop seam = shortest stem
+export function mixGains(sources, gains, start, end) {
+  const sr = sources[0].buffer.sampleRate;
+  const loopLen = Math.min(...sources.map((s) => s.buffer.length));  // loop seam = shortest source
   const i0 = Math.max(0, Math.round(start * sr));
   const i1 = Math.min(loopLen, Math.round(end * sr));
   const n = Math.max(0, i1 - i0);
-  const nCh = Math.min(MAX_CHANNELS, Math.max(...stems.map((s) => s.buffer.numberOfChannels)));
+  const nCh = Math.min(MAX_CHANNELS, Math.max(...sources.map((s) => s.buffer.numberOfChannels)));
   const channels = Array.from({ length: nCh }, () => new Float32Array(n));  // (C, n)
 
-  for (const s of stems) {
-    if (!audible.has(s.id)) continue;
+  for (const s of sources) {
+    const g = gains[s.id] ?? 0;
+    if (!g) continue;
     for (let c = 0; c < nCh; c++) {
-      // Mono stems feed every output channel.
+      // Mono sources feed every output channel.
       const src = s.buffer.getChannelData(Math.min(c, s.buffer.numberOfChannels - 1));
       const out = channels[c];
-      for (let i = 0; i < n; i++) out[i] += src[i0 + i];
+      for (let i = 0; i < n; i++) out[i] += g * src[i0 + i];
     }
   }
   let peak = 0;
@@ -88,9 +90,10 @@ export function encodeWav16(channels, sampleRate, gain = 1) {
 const slug = (s) => String(s).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "x";
 
 /**
- * e.g. "demo-loop-synthesized_A_101111111_gain-1.8dB.wav". (mask, section) is the test-set key,
- * so the section keeps its case to match the manifest.
+ * e.g. "aladdin-friend-like-me_subtract-mix_chorus5_sel0000000010.wav".
+ * (mode, pool, section, pressed mask) is the test-set key, so the section keeps its manifest case.
  */
-export function exportFileName({ song, section, mask, db }) {
-  return `${slug(song).toLowerCase()}_${section === null ? "loop" : slug(section)}_${mask}${db ? `_gain${db}dB` : ""}.wav`;
+export function exportFileName({ song, mode, pool, section, selectedMask, db }) {
+  return `${slug(song).toLowerCase()}_${mode}-${pool}_${section === null ? "loop" : slug(section)}` +
+    `_sel${selectedMask}${db ? `_gain${db}dB` : ""}.wav`;
 }

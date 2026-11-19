@@ -1,6 +1,8 @@
-// Gapless stem playback engine on Web Audio.
-// All stems start on one shared clock and loop forever; toggling only ramps gains,
-// so the audio never pauses or re-triggers while the operator plays the grid.
+// Gapless playback engine on Web Audio.
+// Every source (stems and base recordings) starts on one shared clock and loops forever;
+// changes only ramp gains, so the audio never pauses or re-triggers while the operator plays the grid.
+// Gains may be negative: "base - stem" is played as base at +1 and stem at -1, which cancels the
+// stem inside the base sample by sample (all sources are sample-aligned).
 
 const RAMP_TAU = 0.03;      // setTargetAtTime time constant (s); ~95% settled after 3*tau
 const START_DELAY = 0.1;    // lead time before the shared start (s) so all sources line up
@@ -9,9 +11,9 @@ const FEATURE_BANDS = 8;
 export class StemEngine {
   constructor() {
     this.ctx = null;
-    this.stems = [];          // [{id, label, color, buffer, gain}]
+    this.stems = [];          // [{id, buffer, gain:GainNode, ...meta}] -- every playable source
     this.sources = [];
-    this.loopDur = 0;         // seconds; the shortest stem, so every stem loops at the same point
+    this.loopDur = 0;         // seconds; the shortest source, so every source loops at the same point
     this.t0 = null;           // AudioContext time of sample 0 of the current run
     this.prevSpectrum = null;
     this.fluxMean = 0;
@@ -21,7 +23,7 @@ export class StemEngine {
   context() {
     if (!this.ctx) {
       this.ctx = new AudioContext({ latencyHint: "interactive" });
-      // Safety limiter only: unity stems sum back to the original mix, which should not trip it.
+      // Safety limiter only: unity sums reproduce the recording, which should not trip it.
       this.limiter = new DynamicsCompressorNode(this.ctx, {
         threshold: -1, knee: 0, ratio: 20, attack: 0.002, release: 0.1,
       });
@@ -37,16 +39,16 @@ export class StemEngine {
   }
 
   /**
-   * Replace the loaded stems. Stops playback first.
-   * @param {{id:string,label:string,color:string,buffer:AudioBuffer}[]} stems
+   * Replace the loaded sources. Stops playback first.
+   * @param {{id:string, buffer:AudioBuffer}[]} sources  stems and base recordings, ids unique
    * @returns {string[]} warnings about alignment problems
    */
-  setStems(stems) {
+  setStems(sources) {
     this.stop(0);
     for (const s of this.stems) s.gain.disconnect();
     const ctx = this.context();
     const warnings = [];
-    const lens = stems.map((s) => s.buffer.duration);
+    const lens = sources.map((s) => s.buffer.duration);
     const minDur = Math.min(...lens);
     const maxDur = Math.max(...lens);
     // decodeAudioData resamples to the context rate, so unequal source rates show up as unequal lengths.
@@ -57,7 +59,7 @@ export class StemEngine {
       );
     }
     this.loopDur = minDur;
-    this.stems = stems.map((s) => {
+    this.stems = sources.map((s) => {
       const gain = new GainNode(ctx, { gain: 0 });
       gain.connect(this.master);
       return { ...s, gain };
@@ -66,10 +68,10 @@ export class StemEngine {
   }
 
   /**
-   * Start every stem on the same clock.
-   * @param {Set<string>} audible  ids that should be heard from the first sample
+   * Start every source on the same clock.
+   * @param {Object<string,number>} gains  source id -> gain from the first sample (missing = 0)
    */
-  async start(audible) {
+  async start(gains) {
     const ctx = this.context();
     await ctx.resume();
     this.stop(0);
@@ -78,7 +80,7 @@ export class StemEngine {
     const t0 = ctx.currentTime + START_DELAY;
     this.sources = this.stems.map((s) => {
       s.gain.gain.cancelScheduledValues(ctx.currentTime);
-      s.gain.gain.setValueAtTime(audible.has(s.id) ? 1 : 0, ctx.currentTime);
+      s.gain.gain.setValueAtTime(gains[s.id] ?? 0, ctx.currentTime);
       const src = new AudioBufferSourceNode(ctx, { buffer: s.buffer, loop: true });
       src.loopStart = 0;
       src.loopEnd = this.loopDur;
@@ -111,28 +113,29 @@ export class StemEngine {
 
   /**
    * Context time at which a change should land.
-   * @param {number|null} grid  quantization step in seconds (beat or bar), or null for now
+   * @param {number[]|null} grid  sorted loop-relative times (beats or downbeats), or null for now
    */
   nextBoundary(grid) {
     const now = this.ctx.currentTime;
     const ph = this.playhead();
-    if (!grid || ph === null) return now;
-    const next = Math.ceil((ph + 1e-3) / grid) * grid;
-    // Never cross the loop seam late: a boundary past the loop end lands on the seam instead.
+    if (!grid || !grid.length || ph === null) return now;
+    // Never cross the loop seam late: past the last grid point, the change lands on the seam.
+    const next = grid.find((t) => t > ph + 1e-3) ?? this.loopDur;
     return now + Math.min(next, this.loopDur) - ph;
   }
 
   /**
-   * Ramp each stem toward its target gain starting at `when`.
+   * Ramp each source toward its target gain starting at `when`.
    * Re-scheduling cancels any not-yet-started change, so rapid tapping keeps only the last state.
+   * @param {Object<string,number>} gains  source id -> gain (missing = 0)
    */
-  applyAudible(audible, when) {
+  applyGains(gains, when) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     for (const s of this.stems) {
       const p = s.gain.gain;
       p.cancelScheduledValues(now);
-      p.setTargetAtTime(audible.has(s.id) ? 1 : 0, Math.max(when, now), RAMP_TAU);
+      p.setTargetAtTime(gains[s.id] ?? 0, Math.max(when, now), RAMP_TAU);
     }
   }
 
