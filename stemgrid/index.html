@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<!-- Stem Grid: an n-by-n pad controller that toggles song stems in real time
+     and reports the resulting mix to a show bridge (see stemgrid/README.md). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stem Grid</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <h1>Stem Grid</h1>
+        <p class="song" id="song-title">No stems loaded</p>
+      </div>
+      <div class="chips">
+        <span class="chip" id="audio-status" data-state="idle">audio: idle</span>
+        <span class="chip" id="bridge-status" data-state="off">bridge: off</span>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Controls">
+      <div class="group">
+        <button id="load-demo" type="button">Load demo</button>
+        <label class="file-btn">
+          Open stems folder…
+          <input id="load-folder" type="file" webkitdirectory multiple hidden>
+        </label>
+        <label class="file-btn">
+          Open files…
+          <input id="load-files" type="file" accept="audio/*,.json" multiple hidden>
+        </label>
+      </div>
+
+      <div class="group" role="radiogroup" aria-label="Mode">
+        <label class="seg"><input type="radio" name="mode" value="subtract" checked>
+          <span>Subtract<small>from original</small></span></label>
+        <label class="seg"><input type="radio" name="mode" value="add">
+          <span>Add<small>from silence</small></span></label>
+      </div>
+
+      <div class="group">
+        <label>Quantize
+          <select id="quantize">
+            <option value="off">off</option>
+            <option value="beat">beat</option>
+            <option value="bar">bar</option>
+          </select>
+        </label>
+        <button id="clear" type="button">Clear</button>
+        <button id="start" type="button" class="primary" disabled>Start</button>
+        <button id="stop" type="button" disabled>Stop</button>
+      </div>
+    </section>
+
+    <section class="grid-wrap">
+      <div id="grid" class="grid" aria-label="Stem pads"></div>
+      <p class="drop-hint" id="drop-hint">Load the demo, or drop a stems folder here.</p>
+    </section>
+
+    <section class="readout" aria-live="polite">
+      <div class="row"><span class="k">audible</span><span id="audible-list">—</span></div>
+      <div class="row"><span class="k">position</span><span id="position">—</span></div>
+      <div class="meter" id="meter" aria-hidden="true"></div>
+      <ul class="warnings" id="warnings"></ul>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
