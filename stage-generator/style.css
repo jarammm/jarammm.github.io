@@ -83,7 +83,7 @@ button:focus-visible, .seg input:focus-visible + span, .pad:focus-visible { outl
   display: grid;
   grid-template-columns: repeat(var(--n), 1fr);
   gap: 10px;
-  width: min(100%, 60vh);
+  width: min(100%, 72vh, 720px);
   margin: 0 auto;
 }
 
@@ -108,7 +108,7 @@ button:focus-visible, .seg input:focus-visible + span, .pad:focus-visible { outl
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.pad .label { font-weight: 600; font-size: clamp(.8rem, 2.2vw, 1.05rem); overflow-wrap: anywhere; }
+.pad .label { font-weight: 600; font-size: clamp(.75rem, 2vw, 1.05rem); overflow-wrap: break-word; hyphens: auto; }
 .pad .key { position: absolute; top: 8px; right: 10px; font-size: .75rem; opacity: .6; }
 .pad.audible {
   background: color-mix(in srgb, var(--c) 70%, #000);
@@ -126,6 +126,10 @@ button:focus-visible, .seg input:focus-visible + span, .pad:focus-visible { outl
 }
 .pad.pending { animation: pulse .5s ease-in-out infinite alternate; }
 .pad.empty { visibility: hidden; }
+.pad .level { position: absolute; top: 8px; left: 10px; font-size: .72rem; opacity: .7; }
+/* Pads outside the chosen pool keep their place but cannot be pressed. */
+.pad.inactive { opacity: .22; cursor: not-allowed; }
+.pad:disabled { cursor: not-allowed; }
 @keyframes pulse { to { filter: brightness(1.35); } }
 
 .drop-hint { text-align: center; color: var(--muted); margin: 12px 0 0; }

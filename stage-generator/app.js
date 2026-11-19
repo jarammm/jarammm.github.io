@@ -2,28 +2,35 @@
 // ControllerState (what should sound), StemEngine (sound) and BridgeClient (show bridge).
 //
 // URL parameters:
-//   ?stems=<url of stems.json>   load stems from a server instead of picking files
+//   ?songs=<url of songs.json>   song list for the picker (default: audio/songs.json next to the page, if present)
+//   ?stems=<url of stems.json>   load one song from a server instead of picking files
 //   ?bridge=<ws url>             report state and audio features to the show bridge
 
-import { ControllerState, MODES, PAD_KEYS, gridSize } from "./state.js";
+import { ControllerState, MODES, POOLS, PAD_KEYS, gridSize, inPool } from "./state.js";
 import { StemEngine } from "./engine.js";
 import { renderDemo } from "./demo.js";
 import { loadFromFiles, loadFromUrl } from "./loader.js";
 import { BridgeClient } from "./bridge.js";
-import { exportRange, mixAudible, fitGain, encodeWav16, exportFileName } from "./export.js";
+import { exportRange, mixGains, fitGain, encodeWav16, exportFileName } from "./export.js";
 
 const FEATURE_INTERVAL_MS = 33; // ~30 Hz to the bridge
 const PAD_KEY_CODES = PAD_KEYS.map((k) => (/\d/.test(k) ? `Digit${k}` : `Key${k}`));
+const SILENT_DB = -60;          // a stem quieter than this (vs the mix) is labelled silent
+const POOL_LABEL = { mix: "Mix", accompaniment: "Accompaniment", vocals: "Vocals" };
+const baseId = (pool) => `base:${pool}`;
 
 const $ = (id) => document.getElementById(id);
 const ui = {
   title: $("song-title"), audio: $("audio-status"), bridge: $("bridge-status"),
+  songPicker: $("song-picker"), songSelect: $("song-select"),
   demo: $("load-demo"), folder: $("load-folder"), files: $("load-files"),
+  subtractHint: $("subtract-hint"),
   quantize: $("quantize"), clear: $("clear"), start: $("start"), stop: $("stop"), export: $("export"),
   exportInfo: $("export-info"),
   grid: $("grid"), wrap: document.querySelector(".grid-wrap"), hint: $("drop-hint"),
   audible: $("audible-list"), position: $("position"), meter: $("meter"), warnings: $("warnings"),
 };
+const radios = (name) => [...document.querySelectorAll(`input[name="${name}"]`)];
 
 const engine = new StemEngine();
 let manifest = null;
@@ -47,24 +54,32 @@ function showWarnings(list) {
   ui.warnings.replaceChildren(...list.map((w) => Object.assign(document.createElement("li"), { textContent: w })));
 }
 
-function currentMode() {
-  return document.querySelector('input[name="mode"]:checked').value;
-}
+const checked = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+const setChecked = (name, value) => radios(name).forEach((r) => { r.checked = r.value === value; });
 
 // ---------- loading ----------
 
 async function load(loader) {
   setChip(ui.audio, "audio", "loading");
+  ui.start.disabled = ui.export.disabled = true;
+  // Switching songs mid-performance keeps playing: the new song starts as soon as it is decoded.
+  const wasRunning = engine.running;
   try {
-    engine.stop(0.05);
-    const { manifest: m, stems, warnings = [] } = await loader(engine.context());
-    manifest = m;
-    const alignWarnings = engine.setStems(stems);
-    state = new ControllerState(stems.map((s) => s.id), currentMode());
+    const { manifest: m, stems, bases = [], warnings = [] } = await loader(engine.context());
+    manifest = { beats: [], downbeats: [], sections: [], bases: {}, ...m };
+    const sources = [...stems, ...bases.map((b) => ({ id: baseId(b.pool), buffer: b.buffer }))];
+    const alignWarnings = engine.setStems(sources);
+    state = new ControllerState(stems, { mode: checked("mode"), pool: POOLS.MIX, bases: bases.map((b) => b.pool) });
+    // Keep the chosen pool when the new song has it.
+    const pool = checked("pool");
+    if (state.availablePools().includes(pool)) state.setPool(pool);
+    else setChecked("pool", POOLS.MIX);
+    for (const r of radios("pool")) r.disabled = !state.availablePools().includes(r.value);
+
     renderGrid(stems);
     ui.title.textContent = m.title;
-    ui.quantize.disabled = !m.bpm;
-    if (!m.bpm) ui.quantize.value = "off";
+    ui.quantize.disabled = !beatGrid("beat");
+    if (ui.quantize.disabled) ui.quantize.value = "off";
     ui.start.disabled = false;
     ui.stop.disabled = true;
     ui.export.disabled = false;
@@ -72,10 +87,28 @@ async function load(loader) {
     showWarnings([...warnings, ...alignWarnings]);
     setChip(ui.audio, "audio", "ready");
     apply();
+    if (wasRunning) await start();
   } catch (e) {
     console.error(e);
     setChip(ui.audio, "audio", "error", e.message);
     showWarnings([e.message]);
+  }
+}
+
+/** Fill the song picker from songs.json; silently absent on the public site, where no song audio is hosted. */
+async function loadSongList() {
+  const url = params.get("songs") ?? "audio/songs.json";
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return;
+    const { songs } = await res.json();
+    if (!songs?.length) return;
+    ui.songSelect.replaceChildren(...songs.map((s) =>
+      Object.assign(document.createElement("option"), { value: new URL(s.manifest, new URL(url, location.href)).href, textContent: s.title })));
+    ui.songPicker.hidden = false;
+    if (!params.get("stems")) load((ctx) => loadFromUrl(ctx, ui.songSelect.value));
+  } catch {
+    // No song list: demo and file loading still work.
   }
 }
 
@@ -99,9 +132,13 @@ function renderGrid(stems) {
       b.style.setProperty("--c", s.color);
       b.dataset.id = s.id;
       const key = PAD_KEYS[i];
-      b.innerHTML = `<span class="key"></span><span class="label"></span>`;
+      b.innerHTML = `<span class="key"></span><span class="level"></span><span class="label"></span>`;
       b.querySelector(".label").textContent = s.label;
       b.querySelector(".key").textContent = key ?? "";
+      if (s.level_db !== null && s.level_db !== undefined) {
+        b.querySelector(".level").textContent = s.level_db < SILENT_DB ? "silent" : `${s.level_db.toFixed(0)} dB`;
+        b.title = `${s.label}: ${s.level_db} dB vs the mix in this excerpt`;
+      }
       if (key) b.setAttribute("aria-keyshortcuts", key);
       b.addEventListener("click", () => toggle(s.id));
       pads.set(s.id, b);
@@ -112,17 +149,21 @@ function renderGrid(stems) {
 }
 
 function toggle(id) {
-  if (!state) return;
+  if (!state || !state.isActive(id)) return;
   state.toggle(id);
   apply();
 }
 
 // ---------- applying state ----------
 
-function quantStep() {
-  if (!manifest?.bpm || ui.quantize.value === "off") return null;
-  const beat = 60 / manifest.bpm;
-  return ui.quantize.value === "bar" ? beat * manifest.beats_per_bar : beat;
+/** Loop-relative boundary times for quantizing: recorded beats/downbeats, else a constant-BPM grid. */
+function beatGrid(unit) {
+  if (!manifest) return null;
+  const listed = unit === "bar" ? manifest.downbeats : manifest.beats;
+  if (listed.length) return listed;
+  if (!manifest.bpm) return null;
+  const step = (60 / manifest.bpm) * (unit === "bar" ? manifest.beats_per_bar : 1);
+  return Array.from({ length: Math.ceil(engine.loopDur / step) }, (_, i) => i * step);
 }
 
 function sectionAt(t) {
@@ -130,15 +171,37 @@ function sectionAt(t) {
   return manifest.sections.find((s) => t >= s.start && t < s.end)?.name ?? null;
 }
 
+/** Source id -> gain, for the engine and the exporter. */
+function sourceGains() {
+  const g = state.gains();
+  return { ...g.stems, ...Object.fromEntries(Object.entries(g.bases).map(([p, v]) => [baseId(p), v])) };
+}
+
+/** One line describing what is playing, e.g. "Mix (original) − Drums & perc". */
+function describe() {
+  const label = (id) => manifest.stems.find((s) => s.id === id).label;
+  const pressed = state.stemIds.filter((id) => state.selected.has(id)).map(label);
+  if (state.mode === MODES.ADD) return pressed.length ? pressed.join(" + ") : "(silence)";
+  const base = state.base()
+    ? `${POOL_LABEL[state.pool]} (original)`
+    : `${POOL_LABEL[state.pool]} (sum of its stems)`;
+  return pressed.length ? `${base} − ${pressed.join(" − ")}` : base;
+}
+
 /** Push the current state to audio, pads and bridge. */
 function apply() {
-  const audible = new Set(state.audible());
-  const when = engine.running ? engine.nextBoundary(quantStep()) : engine.context().currentTime;
-  engine.applyAudible(audible, when);
+  const gains = sourceGains();
+  const q = ui.quantize.value === "off" ? null : beatGrid(ui.quantize.value);
+  const when = engine.running ? engine.nextBoundary(q) : engine.context().currentTime;
+  engine.applyGains(gains, when);
 
+  const audible = new Set(state.audible());
   const delay = Math.max(0, when - engine.context().currentTime);
   clearTimeout(pendingTimer);
   for (const [id, b] of pads) {
+    const active = state.isActive(id);
+    b.classList.toggle("inactive", !active);
+    b.disabled = !active;
     b.classList.toggle("selected", state.selected.has(id));
     b.setAttribute("aria-pressed", String(state.selected.has(id)));
     b.classList.toggle("pending", delay > 0.02 && b.classList.contains("audible") !== audible.has(id));
@@ -151,8 +214,8 @@ function apply() {
     }
   }, delay * 1000);
 
-  const labels = manifest.stems.filter((s) => audible.has(s.id)).map((s) => s.label);
-  ui.audible.textContent = labels.length ? labels.join(", ") : "(silence)";
+  ui.subtractHint.textContent = state.bases.has(checked("pool")) ? "from original" : "from stem sum";
+  ui.audible.textContent = describe();
 
   const ph = engine.playhead();
   bridge?.sendState({
@@ -169,7 +232,7 @@ function apply() {
 // ---------- transport ----------
 
 async function start() {
-  await engine.start(new Set(state.audible()));
+  await engine.start(sourceGains());
   ui.start.disabled = true;
   ui.stop.disabled = false;
   setChip(ui.audio, "audio", "running");
@@ -186,15 +249,16 @@ function stop() {
 // ---------- export ----------
 
 /**
- * Download the target mix (the state's audible set, even if a quantized change is still pending)
+ * Download what the current setting plays (even if a quantized change is still pending)
  * for the section under the playhead, or the whole loop when stopped.
  */
 function exportMix() {
   if (!state) return;
   const { start, end, section } = exportRange(manifest.sections, engine.loopDur, engine.playhead());
-  const { channels, sampleRate, peak } = mixAudible(engine.stems, new Set(state.audible()), start, end);
+  const { channels, sampleRate, peak } = mixGains(engine.stems, sourceGains(), start, end);
   const { gain, db } = fitGain(peak);
-  const name = exportFileName({ song: manifest.title, section, mask: state.mask(), db });
+  const name = exportFileName({ song: manifest.title, mode: state.mode, pool: state.pool, section,
+                                selectedMask: state.snapshot().selected_mask, db });
   const url = URL.createObjectURL(new Blob([encodeWav16(channels, sampleRate, gain)], { type: "audio/wav" }));
   const a = Object.assign(document.createElement("a"), { href: url, download: name });
   document.body.append(a);
@@ -240,6 +304,7 @@ setInterval(() => {
 // ---------- inputs ----------
 
 ui.demo.addEventListener("click", () => load(async (ctx) => renderDemo(ctx)));
+ui.songSelect.addEventListener("change", () => load((ctx) => loadFromUrl(ctx, ui.songSelect.value)));
 for (const input of [ui.folder, ui.files]) {
   input.addEventListener("change", () => {
     if (input.files.length) load((ctx) => loadFromFiles(ctx, input.files));
@@ -275,9 +340,14 @@ async function droppedFiles(dt) {
   return out;
 }
 
-document.querySelectorAll('input[name="mode"]').forEach((r) => r.addEventListener("change", () => {
+radios("mode").forEach((r) => r.addEventListener("change", () => {
   if (!state) return;
-  state.setMode(currentMode());
+  state.setMode(checked("mode"));
+  apply();
+}));
+radios("pool").forEach((r) => r.addEventListener("change", () => {
+  if (!state) return;
+  state.setPool(checked("pool"));
   apply();
 }));
 ui.clear.addEventListener("click", () => { if (state) { state.clear(); apply(); } });
@@ -297,6 +367,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 if (params.get("stems")) load((ctx) => loadFromUrl(ctx, params.get("stems")));
+loadSongList();
 
 // Read-only handle for the browser console and automated checks.
 window.stageGenerator = {
@@ -304,4 +375,5 @@ window.stageGenerator = {
   get state() { return state; },
   get manifest() { return manifest; },
   gains: () => Object.fromEntries(engine.stems.map((s) => [s.id, s.gain.gain.value])),
+  inPool,
 };

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- Stage Generator: an n-by-n pad controller that toggles song stems in real time
-     and reports the resulting mix to a show bridge (see stage-generator/README.md). -->
+<!-- Stage Generator: an n-by-n pad controller that removes or adds song stems in real time
+     and reports the result to a show bridge (see stage-generator/README.md). -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -23,6 +23,9 @@
 
     <section class="controls" aria-label="Controls">
       <div class="group">
+        <label id="song-picker" hidden>Song
+          <select id="song-select"></select>
+        </label>
         <button id="load-demo" type="button">Load demo</button>
         <label class="file-btn">
           Open stems folder…
@@ -34,11 +37,20 @@
         </label>
       </div>
 
-      <div class="group" role="radiogroup" aria-label="Mode">
+      <div class="group" role="radiogroup" aria-label="Method">
         <label class="seg"><input type="radio" name="mode" value="subtract" checked>
-          <span>Subtract<small>from original</small></span></label>
+          <span>Subtract<small id="subtract-hint">from original</small></span></label>
         <label class="seg"><input type="radio" name="mode" value="add">
           <span>Add<small>from silence</small></span></label>
+      </div>
+
+      <div class="group" role="radiogroup" aria-label="Pool">
+        <label class="seg"><input type="radio" name="pool" value="mix" checked>
+          <span>Mix<small>all stems</small></span></label>
+        <label class="seg"><input type="radio" name="pool" value="accompaniment">
+          <span>Accompaniment<small>instruments</small></span></label>
+        <label class="seg"><input type="radio" name="pool" value="vocals">
+          <span>Vocals<small>voices</small></span></label>
       </div>
 
       <div class="group">
@@ -50,7 +62,7 @@
           </select>
         </label>
         <button id="clear" type="button">Clear</button>
-        <button id="export" type="button" disabled title="Download the audible mix of the current section as WAV">Export mix</button>
+        <button id="export" type="button" disabled title="Download what is playing (current section) as WAV">Export mix</button>
         <button id="start" type="button" class="primary" disabled>Start</button>
         <button id="stop" type="button" disabled>Stop</button>
       </div>
@@ -62,7 +74,7 @@
     </section>
 
     <section class="readout" aria-live="polite">
-      <div class="row"><span class="k">audible</span><span id="audible-list">—</span></div>
+      <div class="row"><span class="k">playing</span><span id="audible-list">—</span></div>
       <div class="row"><span class="k">position</span><span id="position">—</span></div>
       <div class="row"><span class="k">export</span><span id="export-info">—</span></div>
       <div class="meter" id="meter" aria-hidden="true"></div>

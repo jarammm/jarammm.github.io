@@ -4,14 +4,22 @@ An n×n pad controller for live stem mixing. Each pad is one stem (an instrument
 Pressing a pad selects it; pressing it again deselects it. The page plays the result through Web Audio
 and can report it to a show bridge that drives real-time visuals.
 
-## Modes
+## Settings: method × pool
 
-| Mode | Start state | A selected pad… |
+| Method | Start state | A pressed pad… |
 |---|---|---|
-| **Subtract** | the full original mix | removes its stem |
+| **Subtract** | the pool's original recording | removes its stem (played at gain −1 against the recording) |
 | **Add** | silence | adds its stem |
 
-Switching modes clears the selection, so the mix returns to that mode's start state.
+| Pool | Pads that act | Original recording for Subtract |
+|---|---|---|
+| **Mix** | every stem | `bases.mix` |
+| **Accompaniment** | stems with `group: "accompaniment"` | `bases.accompaniment` |
+| **Vocals** | stems with `group: "vocals"` | `bases.vocals` |
+
+Pads outside the pool are disabled. If the manifest has no recording for a pool, Subtract starts from the
+sum of that pool's stems instead. Separated stems rarely add up to the recording, so the two differ:
+"recording − stem" keeps whatever the separation missed. Switching method or pool clears the selection.
 
 ## Playback guarantees
 
@@ -36,15 +44,29 @@ Song stems do not need to be published with the site.
   "title": "Song title",
   "bpm": 96,
   "beats_per_bar": 4,
+  "beats": [0.41, 1.05],
+  "downbeats": [0.41, 3.02],
   "sections": [{ "name": "verse1", "start": 0.0, "end": 32.5 }],
+  "bases": { "mix": "base_mix.flac", "accompaniment": "base_accompaniment.flac", "vocals": "base_vocals.flac" },
   "stems": [
-    { "id": "vocals",   "label": "Vocals",   "file": "vocals.wav",   "color": "#f472b6" },
-    { "id": "ensemble", "label": "Ensemble", "file": "ensemble.wav" }
+    { "id": "vocals",   "label": "Vocals",   "file": "vocals.flac",   "group": "vocals", "color": "#f472b6", "level_db": -6.8 },
+    { "id": "ensemble", "label": "Ensemble", "file": "ensemble.flac", "group": "vocals" },
+    { "id": "brass",    "label": "Brass",    "file": "brass.flac",    "group": "accompaniment" }
   ]
 }
 ```
 
 Only `stems[].file` is required. Pad order follows `stems` (row-major), and so does the mask bit order.
+`beats`/`downbeats` (seconds) drive Quantize; without them a constant `bpm` grid is used.
+`level_db` (stem level vs the mix) is shown on the pad; below −60 dB the pad reads "silent".
+All files, bases included, must share start time and length so that subtraction cancels sample by sample.
+
+### Local song set
+
+`tools/build_listening_set.py` builds 90 s excerpts of four musical numbers from the lab's
+`musical-textsetting` outputs into `stage-generator/audio/` (git-ignored: cast recordings, lab-internal only).
+When `audio/songs.json` exists next to the page, a song picker appears. Run it with `uv run`; the
+script header documents how the stems are scaled onto the original mix.
 Keyboard shortcuts follow the same order: `1`–`0`, then `Q`… (physical keys, so they work with any IME).
 
 ## Export mix
@@ -52,11 +74,12 @@ Keyboard shortcuts follow the same order: `1`–`0`, then `Q`… (physical keys,
 **Export mix** downloads the audible mix as a 16-bit WAV, for testing caption and generation models offline.
 
 - Range: the section under the playhead, or the whole loop when stopped or without sections.
-- Content: the target state, i.e. what will sound once any quantized change lands.
-- Mixing rule: plain sum of audible stems at gain 1, no limiter. If the sum exceeds full scale, the whole file
-  is scaled down instead of clipped, and the gain is written into the name.
-  The show bridge renders with the same rule, so the same `(mask, section)` gives the same audio.
-- Name: `<song>_<section|loop>_<mask>[_gain<dB>dB].wav`, e.g. `demo-loop-synthesized_A_100010000.wav`.
+- Content: the target setting, i.e. what will sound once any quantized change lands.
+- Mixing rule: sum of every source (stems and recordings) times its gain (+1, −1 or 0), no limiter. If the sum
+  exceeds full scale, the whole file is scaled down instead of clipped, and the gain is written into the name.
+  The show bridge renders with the same rule, so the same setting and section give the same audio.
+- Name: `<song>_<method>-<pool>_<section|loop>_sel<pressed mask>[_gain<dB>dB].wav`,
+  e.g. `aladdin-friend-like-me_subtract-mix_chorus5_sel0000000010.wav`.
 - Sample rate is the browser's audio rate (stems are resampled on decode). Use stems at that rate (usually 48 kHz)
   to keep exports bit-comparable with bridge renders.
 
@@ -68,7 +91,9 @@ The client reconnects with backoff and replays the latest state after reconnecti
 ```js
 // on every change
 { "type": "state", "song": "…", "stems": ["vocals", …], "mode": "subtract" | "add",
-  "selected": ["drums"], "audible": ["vocals", …], "mask": "110111111",
+  "pool": "mix" | "accompaniment" | "vocals", "base": "mix" | … | null,
+  "selected": ["drums"], "selected_mask": "001000000", "audible": ["vocals", …], "mask": "110111111",
+  "gains": { "stems": { "drums": -1, … }, "bases": { "mix": 1, … } },
   "playhead_sec": 12.3, "section": "verse1", "apply_in_sec": 0.42, "ts": 1763540000.12 }
 
 // ~30 Hz while playing
@@ -76,8 +101,9 @@ The client reconnects with backoff and replays the latest state after reconnecti
   "playhead_sec": 12.33, "section": "verse1", "ts": 1763540000.15 }
 ```
 
-The audio itself is not streamed. The bridge holds the same stems and renders the audible mix from
-`mask` and `playhead_sec`, which keeps the link light and the result deterministic.
+The audio itself is not streamed. The bridge holds the same files and renders the result from `gains` and
+`playhead_sec`, which keeps the link light and the result deterministic. `mask`/`audible` are the pool stems
+that still sound, for display; with a recording as base they ignore what the separation missed.
 
 `onset` is the positive spectral flux divided by its running mean; values well above 1 mark hits.
 
