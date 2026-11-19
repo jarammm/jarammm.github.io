@@ -11,13 +11,12 @@ import { StemEngine } from "./engine.js";
 import { renderDemo } from "./demo.js";
 import { loadFromFiles, loadFromUrl } from "./loader.js";
 import { BridgeClient } from "./bridge.js";
-import { mixGains, fitGain, encodeWav16, exportFileName } from "./export.js";
+import { renderSong, fitGain, encodeWav16, exportFileName } from "./export.js";
 
 const FEATURE_INTERVAL_MS = 33; // ~30 Hz to the bridge
 const PAD_KEY_CODES = PAD_KEYS.map((k) => (/\d/.test(k) ? `Digit${k}` : `Key${k}`));
 const SILENT_DB = -60;          // a stem quieter than this (vs the mix) is labelled silent
 const POOL_LABEL = { mix: "Mix", accompaniment: "Accompaniment", vocals: "Vocals" };
-const baseId = (pool) => `base:${pool}`;
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -27,13 +26,16 @@ const ui = {
   subtractHint: $("subtract-hint"),
   quantize: $("quantize"), clear: $("clear"), start: $("start"), stop: $("stop"), export: $("export"),
   exportInfo: $("export-info"),
+  seek: $("seek"), timeCur: $("time-cur"), timeDur: $("time-dur"), sectionBar: $("section-bar"),
   grid: $("grid"), wrap: document.querySelector(".grid-wrap"), hint: $("drop-hint"),
   audible: $("audible-list"), position: $("position"), meter: $("meter"), warnings: $("warnings"),
 };
 const radios = (name) => [...document.querySelectorAll(`input[name="${name}"]`)];
 
-const engine = new StemEngine();
+const engine = new StemEngine((s, detail) => setChip(ui.audio, "audio", s, detail));
 let manifest = null;
+let song = null;               // loader song currently in the engine
+let seeking = false;           // the seek bar is being dragged
 let state = null;
 let pads = new Map();          // id -> button
 let pendingTimer = null;
@@ -65,11 +67,13 @@ async function load(loader) {
   // Switching songs mid-performance keeps playing: the new song starts as soon as it is decoded.
   const wasRunning = engine.running;
   try {
-    const { manifest: m, stems, bases = [], warnings = [] } = await loader(engine.context());
-    manifest = { beats: [], downbeats: [], sections: [], bases: {}, ...m };
-    const sources = [...stems, ...bases.map((b) => ({ id: baseId(b.pool), buffer: b.buffer }))];
-    const alignWarnings = engine.setStems(sources);
-    state = new ControllerState(stems, { mode: checked("mode"), pool: POOLS.MIX, bases: bases.map((b) => b.pool) });
+    const loaded = await loader(engine.context());
+    engine.setSong(loaded);
+    song = loaded;
+    const m = loaded.manifest;
+    manifest = m;
+    const stems = m.stems;
+    state = new ControllerState(stems, { mode: checked("mode"), pool: POOLS.MIX, bases: m.bases });
     // Keep the chosen pool when the new song has it.
     const pool = checked("pool");
     if (state.availablePools().includes(pool)) state.setPool(pool);
@@ -85,8 +89,9 @@ async function load(loader) {
     ui.stop.disabled = true;
     ui.export.disabled = false;
     ui.hint.hidden = true;
-    showWarnings([...warnings, ...alignWarnings]);
+    showWarnings(loaded.warnings);
     setChip(ui.audio, "audio", "ready");
+    renderTransport();
     apply();
     if (wasRunning) await start();
   } catch (e) {
@@ -159,7 +164,7 @@ function renderGrid(stems) {
       b.querySelector(".key").textContent = key ?? "";
       if (s.level_db !== null && s.level_db !== undefined) {
         b.querySelector(".level").textContent = s.level_db < SILENT_DB ? "silent" : `${s.level_db.toFixed(0)} dB`;
-        b.title = `${s.label}: ${s.level_db} dB vs the mix in this excerpt`;
+        b.title = `${s.label}: ${s.level_db} dB vs the whole mix`;
       }
       if (key) b.setAttribute("aria-keyshortcuts", key);
       b.addEventListener("click", () => toggle(s.id));
@@ -195,8 +200,7 @@ function sectionAt(t) {
 
 /** Source id -> gain, for the engine and the exporter. */
 function sourceGains() {
-  const g = state.gains();
-  return { ...g.stems, ...Object.fromEntries(Object.entries(g.bases).map(([p, v]) => [baseId(p), v])) };
+  return state.gains();
 }
 
 /** One line describing what is playing, e.g. "Mix (original) − Drums & perc". */
@@ -254,10 +258,9 @@ function apply() {
 // ---------- transport ----------
 
 async function start() {
-  await engine.start(sourceGains());
   ui.start.disabled = true;
   ui.stop.disabled = false;
-  setChip(ui.audio, "audio", "running");
+  await engine.start(sourceGains());
   apply();
 }
 
@@ -268,20 +271,58 @@ function stop() {
   setChip(ui.audio, "audio", "ready");
 }
 
+/** Seek bar range and the section strip under it. */
+function renderTransport() {
+  const dur = engine.loopDur;
+  ui.seek.max = String(dur);
+  ui.seek.value = "0";
+  ui.seek.disabled = false;
+  ui.timeDur.textContent = fmt(dur);
+  ui.sectionBar.replaceChildren(...manifest.sections.filter((s) => s.end > s.start).map((s) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "section";
+    b.style.left = `${(100 * s.start) / dur}%`;
+    b.style.width = `${(100 * (Math.min(s.end, dur) - s.start)) / dur}%`;
+    b.textContent = s.name;
+    b.title = `${s.name}  ${fmt(s.start)}–${fmt(s.end)}`;
+    b.addEventListener("click", () => seekTo(s.start));
+    return b;
+  }));
+}
+
+async function seekTo(pos) {
+  ui.seek.value = String(pos);
+  await engine.seek(pos);
+}
+
 // ---------- export ----------
 
 /**
  * Download what the current setting plays (even if a quantized change is still pending)
- * over the whole loop, whatever the playhead or transport state.
+ * over the whole song, whatever the playhead or transport state. Streams the song chunk by chunk,
+ * fetching only the sources that sound in this setting.
  */
-function exportMix() {
-  if (!state) return;
-  const start = 0;
-  const end = engine.loopDur;
-  const { channels, sampleRate, peak } = mixGains(engine.stems, sourceGains(), start, end);
+async function exportMix() {
+  if (!state || !song) return;
+  ui.export.disabled = true;
+  const gains = sourceGains();
+  const setting = state.snapshot();
+  try {
+    const { channels, sampleRate, peak } = await renderSong(song, gains, engine.context(),
+      (done, total) => { ui.exportInfo.textContent = `rendering ${done}/${total} chunks…`; });
+    download(channels, sampleRate, peak, setting);
+  } catch (e) {
+    ui.exportInfo.textContent = `export failed: ${e.message}`;
+  } finally {
+    ui.export.disabled = false;
+  }
+}
+
+function download(channels, sampleRate, peak, setting) {
   const { gain, db } = fitGain(peak);
-  const name = exportFileName({ song: manifest.title, mode: state.mode, pool: state.pool,
-                                selectedMask: state.snapshot().selected_mask, db });
+  const name = exportFileName({ song: manifest.title, mode: setting.mode, pool: setting.pool,
+                                selectedMask: setting.selected_mask, db });
   const url = URL.createObjectURL(new Blob([encodeWav16(channels, sampleRate, gain)], { type: "audio/wav" }));
   const a = Object.assign(document.createElement("a"), { href: url, download: name });
   document.body.append(a);
@@ -289,7 +330,7 @@ function exportMix() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
   ui.exportInfo.textContent =
-    `${name}  ·  ${(end - start).toFixed(2)} s, ${sampleRate} Hz` + (db ? `  ·  scaled ${db} dB to avoid clipping` : "");
+    `${name}  ·  ${(channels[0].length / sampleRate).toFixed(1)} s, ${sampleRate} Hz` + (db ? `  ·  scaled ${db} dB to avoid clipping` : "");
 }
 
 // ---------- readout and feature stream ----------
@@ -303,6 +344,11 @@ function fmt(t) {
 
 function frame() {
   const ph = engine.playhead();
+  if (!seeking && manifest) {
+    const at = ph ?? engine.startPos;
+    ui.seek.value = String(at);
+    ui.timeCur.textContent = fmt(at);
+  }
   if (ph !== null) {
     const sec = sectionAt(ph);
     ui.position.textContent = `${fmt(ph)} / ${fmt(engine.loopDur)}${sec ? `  ·  section ${sec}` : ""}`;
@@ -327,6 +373,8 @@ setInterval(() => {
 // ---------- inputs ----------
 
 ui.demo.addEventListener("click", () => load(async (ctx) => renderDemo(ctx)));
+ui.seek.addEventListener("input", () => { seeking = true; ui.timeCur.textContent = fmt(Number(ui.seek.value)); });
+ui.seek.addEventListener("change", async () => { seeking = false; await seekTo(Number(ui.seek.value)); });
 ui.songSelect.addEventListener("change", () => load((ctx) => loadFromUrl(ctx, ui.songSelect.value)));
 for (const input of [ui.folder, ui.files]) {
   input.addEventListener("change", () => {
@@ -397,6 +445,7 @@ window.stageGenerator = {
   engine,
   get state() { return state; },
   get manifest() { return manifest; },
-  gains: () => Object.fromEntries(engine.stems.map((s) => [s.id, s.gain.gain.value])),
+  get song() { return song; },
+  gains: () => Object.fromEntries(engine.sources.map((s) => [s.id, s.gain.gain.value])),
   inPool,
 };

@@ -27,15 +27,6 @@
         <label id="song-picker" hidden>Song
           <select id="song-select"></select>
         </label>
-        <button id="load-demo" type="button">Load demo</button>
-        <label class="file-btn">
-          Open stems folder…
-          <input id="load-folder" type="file" webkitdirectory multiple hidden>
-        </label>
-        <label class="file-btn">
-          Open files…
-          <input id="load-files" type="file" accept="audio/*,.json" multiple hidden>
-        </label>
       </div>
 
       <div class="group" role="radiogroup" aria-label="Method">
@@ -69,9 +60,15 @@
       </div>
     </section>
 
+    <section class="transport" aria-label="Playback position">
+      <div class="times"><span id="time-cur">0:00.0</span><span id="time-dur">0:00.0</span></div>
+      <input id="seek" type="range" min="0" max="1" step="0.01" value="0" disabled aria-label="Seek">
+      <div id="section-bar" class="section-bar" aria-label="Sections"></div>
+    </section>
+
     <section class="grid-wrap">
       <div id="grid" class="grid" aria-label="Stem pads"></div>
-      <p class="drop-hint" id="drop-hint">Load the demo, or drop a stems folder here.</p>
+      <p class="drop-hint" id="drop-hint">Choose a song above.</p>
     </section>
 
     <section class="readout" aria-live="polite">
@@ -81,6 +78,22 @@
       <div class="meter" id="meter" aria-hidden="true"></div>
       <ul class="warnings" id="warnings"></ul>
     </section>
+
+    <details class="dev">
+      <summary>Other sources (for development)</summary>
+      <p>Load a synthesized demo, or your own stems (a folder with stems.json, or audio files) held in memory.</p>
+      <div class="group">
+        <button id="load-demo" type="button">Load demo</button>
+        <label class="file-btn">
+          Open stems folder…
+          <input id="load-folder" type="file" webkitdirectory multiple hidden>
+        </label>
+        <label class="file-btn">
+          Open files…
+          <input id="load-files" type="file" accept="audio/*,.json" multiple hidden>
+        </label>
+      </div>
+    </details>
   </main>
 
   <script type="module" src="app.js"></script>

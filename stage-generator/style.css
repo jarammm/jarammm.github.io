@@ -156,3 +156,20 @@ button:focus-visible, .seg input:focus-visible + span, .pad:focus-visible { outl
   .grid { gap: 6px; }
   .pad { padding: 6px; }
 }
+
+/* Seek bar with the song's sections underneath; a section click jumps to its start. */
+.transport { display: grid; gap: 4px; }
+.times { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+#seek { width: 100%; accent-color: var(--accent); margin: 0; }
+.section-bar { position: relative; height: 22px; }
+.section-bar .section {
+  position: absolute; top: 0; height: 100%;
+  padding: 0 4px; border-radius: 4px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--muted); font-size: .68rem;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left;
+}
+.section-bar .section:hover { color: var(--fg); border-color: var(--muted); }
+
+.dev { color: var(--muted); font-size: .85rem; }
+.dev summary { cursor: pointer; }
+.dev p { margin: 8px 0; }
