@@ -1,4 +1,4 @@
-// Unit tests for the controller state. Run: node --test "stemgrid/tests/*.test.mjs"
+// Unit tests for the controller state. Run: node --test "stage-generator/tests/*.test.mjs"
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ControllerState, MODES, gridSize } from "../state.js";

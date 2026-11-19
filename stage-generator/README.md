@@ -1,4 +1,4 @@
-# Stem Grid
+# Stage Generator
 
 An n×n pad controller for live stem mixing. Each pad is one stem (an instrument or a voice part).
 Pressing a pad selects it; pressing it again deselects it. The page plays the result through Web Audio
@@ -71,8 +71,8 @@ The audio itself is not streamed. The bridge holds the same stems and renders th
 ## Development
 
 ```bash
-node --test "stemgrid/tests/*.test.mjs"   # state, demo and manifest logic
+node --test "stage-generator/tests/*.test.mjs"   # state, demo and manifest logic
 ```
 
 ES modules require serving over HTTP (e.g. `python3 -m http.server`), not opening the file directly.
-`window.stemgrid` exposes the engine and state for console debugging.
+`window.stageGenerator` exposes the engine and state for console debugging.

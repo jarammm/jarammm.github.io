@@ -273,7 +273,7 @@ document.addEventListener("keydown", (e) => {
 if (params.get("stems")) load((ctx) => loadFromUrl(ctx, params.get("stems")));
 
 // Read-only handle for the browser console and automated checks.
-window.stemgrid = {
+window.stageGenerator = {
   engine,
   get state() { return state; },
   get manifest() { return manifest; },
