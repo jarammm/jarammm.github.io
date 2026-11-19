@@ -44,6 +44,7 @@ export function normalizeManifest(m) {
   const sections = (m.sections ?? []).map((s) => ({ name: String(s.name), start: Number(s.start), end: Number(s.end) }));
   return {
     title: m.title ?? "Untitled",
+    credits: normalizeCredits(m.credits),
     bpm: m.bpm ? Number(m.bpm) : null,
     beats_per_bar: m.beats_per_bar ? Number(m.beats_per_bar) : 4,
     beats: numList(m.beats),
@@ -51,6 +52,22 @@ export function normalizeManifest(m) {
     sections,
     bases,
     stems,
+  };
+}
+
+/**
+ * Attribution for recorded material: plain strings only, and a source link only if it is http(s),
+ * since the page renders it as a link.
+ * @returns {object|null}  {work, song, performers, album, music, lyrics, source_url, notice} or null
+ */
+export function normalizeCredits(c) {
+  if (!c || typeof c !== "object") return null;
+  const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const url = str(c.source_url);
+  return {
+    work: str(c.work), song: str(c.song), performers: str(c.performers), album: str(c.album),
+    music: str(c.music), lyrics: str(c.lyrics), notice: str(c.notice),
+    source_url: url && /^https?:\/\//i.test(url) ? url : null,
   };
 }
 

@@ -21,7 +21,7 @@ const baseId = (pool) => `base:${pool}`;
 
 const $ = (id) => document.getElementById(id);
 const ui = {
-  title: $("song-title"), audio: $("audio-status"), bridge: $("bridge-status"),
+  title: $("song-title"), credit: $("credit"), audio: $("audio-status"), bridge: $("bridge-status"),
   songPicker: $("song-picker"), songSelect: $("song-select"),
   demo: $("load-demo"), folder: $("load-folder"), files: $("load-files"),
   subtractHint: $("subtract-hint"),
@@ -78,6 +78,7 @@ async function load(loader) {
 
     renderGrid(stems);
     ui.title.textContent = m.title;
+    renderCredit(m.credits);
     ui.quantize.disabled = !beatGrid("beat");
     if (ui.quantize.disabled) ui.quantize.value = "off";
     ui.start.disabled = false;
@@ -110,6 +111,27 @@ async function loadSongList() {
   } catch {
     // No song list: demo and file loading still work.
   }
+}
+
+/** Attribution line for recorded material, e.g. official cast recordings. Built with textContent only. */
+function renderCredit(c) {
+  ui.credit.hidden = !c;
+  if (!c) return ui.credit.replaceChildren();
+  const parts = [
+    c.work && c.song ? `"${c.song}" from ${c.work}` : (c.song ?? c.work),
+    c.performers && `performed by ${c.performers}`,
+    c.album && `(${c.album})`,
+    c.music && `music: ${c.music}`,
+    c.lyrics && `lyrics: ${c.lyrics}`,
+  ].filter(Boolean);
+  const nodes = [document.createTextNode(`${parts.join(", ")}. `)];
+  if (c.notice) nodes.push(document.createTextNode(`${c.notice} `));
+  if (c.source_url) {
+    nodes.push(Object.assign(document.createElement("a"), {
+      href: c.source_url, textContent: "Source", target: "_blank", rel: "noopener noreferrer",
+    }));
+  }
+  ui.credit.replaceChildren(...nodes);
 }
 
 // ---------- grid ----------

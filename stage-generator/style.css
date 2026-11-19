@@ -35,6 +35,8 @@ html, body {
 .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 h1 { margin: 0; font-size: 1.4rem; letter-spacing: .02em; }
 .song { margin: 2px 0 0; color: var(--muted); }
+.credit { margin: 4px 0 0; color: var(--muted); font-size: .78rem; max-width: 70ch; }
+.credit a { color: inherit; }
 
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip {

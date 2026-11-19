@@ -1,7 +1,7 @@
 // Tests for manifest validation and the no-manifest fallback.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeManifest, manifestFromNames, manifestFiles, codecWarnings } from "../loader.js";
+import { normalizeManifest, normalizeCredits, manifestFromNames, manifestFiles, codecWarnings } from "../loader.js";
 
 test("fills id, label and color defaults from the file name", () => {
   const m = normalizeManifest({ stems: [{ file: "stems/vocals.wav" }, { id: "ens", file: "ensemble.flac", label: "Ensemble" }] });
@@ -41,4 +41,11 @@ test("reads groups, levels, beats and base recordings", () => {
 test("rejects unknown groups and bases", () => {
   assert.throws(() => normalizeManifest({ stems: [{ file: "a.wav", group: "drums" }] }), /group/);
   assert.throws(() => normalizeManifest({ stems: [{ file: "a.wav" }], bases: { drums: "d.wav" } }), /base/);
+});
+
+test("credits keep plain strings and only http(s) source links", () => {
+  const c = normalizeCredits({ work: " Wicked ", song: "No One Mourns", source_url: "javascript:alert(1)", music: 3 });
+  assert.deepEqual([c.work, c.song, c.source_url, c.music], ["Wicked", "No One Mourns", null, null]);
+  assert.equal(normalizeCredits({ source_url: "https://www.youtube.com/watch?v=x" }).source_url, "https://www.youtube.com/watch?v=x");
+  assert.equal(normalizeCredits(undefined), null);
 });
