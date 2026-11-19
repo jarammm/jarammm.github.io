@@ -8,19 +8,6 @@
 const MAX_CHANNELS = 2;
 
 /**
- * Time range to export: the section under the playhead, or the whole loop.
- * @param {{name:string,start:number,end:number}[]} sections
- * @param {number} loopDur        loop length in seconds
- * @param {number|null} playhead  seconds into the loop, or null when stopped
- * @returns {{start:number, end:number, section:string|null}}
- */
-export function exportRange(sections, loopDur, playhead) {
-  const sec = playhead === null ? null : sections.find((s) => playhead >= s.start && playhead < s.end);
-  if (!sec) return { start: 0, end: loopDur, section: null };
-  return { start: Math.max(0, sec.start), end: Math.min(loopDur, sec.end), section: sec.name };
-}
-
-/**
  * Sum sources times their gains over [start, end).
  * @param {{id:string, buffer:AudioBuffer}[]} sources  buffers share one sample rate (decoded by one context)
  * @param {Object<string,number>} gains  id -> gain; missing or 0 means the source is skipped
@@ -90,10 +77,9 @@ export function encodeWav16(channels, sampleRate, gain = 1) {
 const slug = (s) => String(s).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "x";
 
 /**
- * e.g. "aladdin-friend-like-me_subtract-mix_chorus5_sel0000000010.wav".
- * (mode, pool, section, pressed mask) is the test-set key, so the section keeps its manifest case.
+ * e.g. "aladdin-friend-like-me_subtract-mix_sel0000000010.wav". Exports always cover the whole loop,
+ * so (mode, pool, pressed mask) is the test-set key.
  */
-export function exportFileName({ song, mode, pool, section, selectedMask, db }) {
-  return `${slug(song).toLowerCase()}_${mode}-${pool}_${section === null ? "loop" : slug(section)}` +
-    `_sel${selectedMask}${db ? `_gain${db}dB` : ""}.wav`;
+export function exportFileName({ song, mode, pool, selectedMask, db }) {
+  return `${slug(song).toLowerCase()}_${mode}-${pool}_sel${selectedMask}${db ? `_gain${db}dB` : ""}.wav`;
 }

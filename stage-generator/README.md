@@ -81,15 +81,16 @@ Keyboard shortcuts follow the same order: `1`–`0`, then `Q`… (physical keys,
 
 ## Export mix
 
-**Export mix** downloads the audible mix as a 16-bit WAV, for testing caption and generation models offline.
+**Export mix** downloads what the current setting plays as a 16-bit WAV, for testing caption and generation
+models offline.
 
-- Range: the section under the playhead, or the whole loop when stopped or without sections.
+- Range: always the whole loop, whether playing or stopped.
 - Content: the target setting, i.e. what will sound once any quantized change lands.
 - Mixing rule: sum of every source (stems and recordings) times its gain (+1, −1 or 0), no limiter. If the sum
   exceeds full scale, the whole file is scaled down instead of clipped, and the gain is written into the name.
-  The show bridge renders with the same rule, so the same setting and section give the same audio.
-- Name: `<song>_<method>-<pool>_<section|loop>_sel<pressed mask>[_gain<dB>dB].wav`,
-  e.g. `aladdin-friend-like-me_subtract-mix_chorus5_sel0000000010.wav`.
+  The show bridge renders with the same rule, so the same setting gives the same audio.
+- Name: `<song>_<method>-<pool>_sel<pressed mask>[_gain<dB>dB].wav`,
+  e.g. `aladdin-friend-like-me_subtract-mix_sel0000000010.wav`.
 - Sample rate is the browser's audio rate (stems are resampled on decode). Use stems at that rate (usually 48 kHz)
   to keep exports bit-comparable with bridge renders.
 

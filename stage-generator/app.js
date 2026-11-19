@@ -11,7 +11,7 @@ import { StemEngine } from "./engine.js";
 import { renderDemo } from "./demo.js";
 import { loadFromFiles, loadFromUrl } from "./loader.js";
 import { BridgeClient } from "./bridge.js";
-import { exportRange, mixGains, fitGain, encodeWav16, exportFileName } from "./export.js";
+import { mixGains, fitGain, encodeWav16, exportFileName } from "./export.js";
 
 const FEATURE_INTERVAL_MS = 33; // ~30 Hz to the bridge
 const PAD_KEY_CODES = PAD_KEYS.map((k) => (/\d/.test(k) ? `Digit${k}` : `Key${k}`));
@@ -272,14 +272,15 @@ function stop() {
 
 /**
  * Download what the current setting plays (even if a quantized change is still pending)
- * for the section under the playhead, or the whole loop when stopped.
+ * over the whole loop, whatever the playhead or transport state.
  */
 function exportMix() {
   if (!state) return;
-  const { start, end, section } = exportRange(manifest.sections, engine.loopDur, engine.playhead());
+  const start = 0;
+  const end = engine.loopDur;
   const { channels, sampleRate, peak } = mixGains(engine.stems, sourceGains(), start, end);
   const { gain, db } = fitGain(peak);
-  const name = exportFileName({ song: manifest.title, mode: state.mode, pool: state.pool, section,
+  const name = exportFileName({ song: manifest.title, mode: state.mode, pool: state.pool,
                                 selectedMask: state.snapshot().selected_mask, db });
   const url = URL.createObjectURL(new Blob([encodeWav16(channels, sampleRate, gain)], { type: "audio/wav" }));
   const a = Object.assign(document.createElement("a"), { href: url, download: name });

@@ -1,22 +1,13 @@
 // Tests for mix export: range choice, mixing rule, gain fitting, WAV encoding and naming.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exportRange, mixGains, fitGain, encodeWav16, exportFileName } from "../export.js";
+import { mixGains, fitGain, encodeWav16, exportFileName } from "../export.js";
 
 /** AudioBuffer stand-in built from per-channel arrays. */
 function buf(chans, sampleRate = 10) {
   const data = chans.map((c) => Float32Array.from(c));
   return { sampleRate, length: data[0].length, numberOfChannels: data.length, getChannelData: (c) => data[c] };
 }
-
-const SECTIONS = [{ name: "A", start: 0, end: 4 }, { name: "B", start: 4, end: 8 }];
-
-test("range is the section under the playhead, else the whole loop", () => {
-  assert.deepEqual(exportRange(SECTIONS, 8, 5.2), { start: 4, end: 8, section: "B" });
-  assert.deepEqual(exportRange(SECTIONS, 8, null), { start: 0, end: 8, section: null });
-  assert.deepEqual(exportRange([], 8, 3), { start: 0, end: 8, section: null });
-  assert.deepEqual(exportRange(SECTIONS, 6, 5), { start: 4, end: 6, section: "B" }); // clipped to loop
-});
 
 test("sums sources times their gains; mono sources feed both channels", () => {
   const stems = [
@@ -72,11 +63,9 @@ test("WAV header and samples are correct", () => {
   assert.deepEqual([s(0), s(1), s(2), s(3), s(4), s(5)], [0, 8192, 16384, 0, -16384, 32767]);
 });
 
-test("file name carries song, section, mask and any gain", () => {
-  assert.equal(exportFileName({ song: "Demo loop (synthesized)", mode: "add", pool: "vocals", section: "A", selectedMask: "101", db: 0 }),
-    "demo-loop-synthesized_add-vocals_A_sel101.wav");
-  assert.equal(exportFileName({ song: "S", mode: "subtract", pool: "mix", section: "verse 1", selectedMask: "0", db: 0 }),
-    "s_subtract-mix_verse-1_sel0.wav");
-  assert.equal(exportFileName({ song: "X", mode: "add", pool: "mix", section: null, selectedMask: "1", db: -1.8 }),
-    "x_add-mix_loop_sel1_gain-1.8dB.wav");
+test("file name carries song, setting, pressed mask and any gain", () => {
+  assert.equal(exportFileName({ song: "Demo loop (synthesized)", mode: "add", pool: "vocals", selectedMask: "101", db: 0 }),
+    "demo-loop-synthesized_add-vocals_sel101.wav");
+  assert.equal(exportFileName({ song: "X", mode: "subtract", pool: "mix", selectedMask: "1", db: -1.8 }),
+    "x_subtract-mix_sel1_gain-1.8dB.wav");
 });
