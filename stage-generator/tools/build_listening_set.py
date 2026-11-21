@@ -11,8 +11,9 @@ For each song this writes the full recording, cut into fixed-length FLAC chunks 
               and the accompaniment split one of two ways:
               mega53_9 (default): 8 instrument classes (brass, woodwind, bowed_strings, harp, keys, guitar,
                 drums_perc, bass) from MVSep Mega 53 regrouped;
-              demucs4 (songs in ACCOMP_SPLIT): htdemucs_ft's 4 stems of the accompaniment (drums, bass, other,
-                and vocal_leak = its "vocals" stem, the voice the MelBand split left in the accompaniment).
+              demucs4 (songs in ACCOMP_SPLIT): htdemucs_ft's 4-stem split of the accompaniment, published as
+                drums, bass and guitar (its "other" stem). Its "vocals" stem, the voice the MelBand split left
+                in the accompaniment, is not a pad; it stays inside the mix base.
   bases     : what "subtract" removes from, as signed sums of the files above:
               mix = recording; vocals = vocals + ensemble; accompaniment = mix - vocals - ensemble.
               The voice stems sum to the MelBand vocals (-75..-84 dB), and MelBand vocals + accompaniment
@@ -51,15 +52,14 @@ REPO = Path(__file__).resolve().parents[2]
 SR = 44100
 CHUNK_S = 20                 # seconds per streamed chunk: ~1 MB of FLAC per source, small enough to fetch ahead
 INSTRUMENTS = ["brass", "woodwind", "bowed_strings", "harp", "keys", "guitar", "drums_perc", "bass"]
-DEMUCS = {"drums": "drums", "bass": "bass", "other": "other", "vocal_leak": "vocals"}  # stem id -> demucs file
+# stem id -> demucs file. User decision 2026-11-21 (Lizzie): "other" is the guitar, and "vocals" is dropped.
+DEMUCS = {"drums": "drums", "bass": "bass", "guitar": "other"}
 LABELS = {"vocals": "Vocals", "ensemble": "Ensemble", "brass": "Brass", "woodwind": "Woodwind",
           "bowed_strings": "Bowed strings", "harp": "Harp", "keys": "Keys", "guitar": "Guitar",
-          "drums_perc": "Drums & perc", "bass": "Bass", "drums": "Drums", "other": "Other",
-          "vocal_leak": "Vocal leak"}
+          "drums_perc": "Drums & perc", "bass": "Bass", "drums": "Drums"}
 COLORS = {"vocals": "#f472b6", "ensemble": "#c084fc", "brass": "#facc15", "woodwind": "#a3e635",
           "bowed_strings": "#2dd4bf", "harp": "#38bdf8", "keys": "#4ade80", "guitar": "#fb923c",
-          "drums_perc": "#f87171", "bass": "#818cf8", "drums": "#f87171", "other": "#2dd4bf",
-          "vocal_leak": "#94a3b8"}
+          "drums_perc": "#f87171", "bass": "#818cf8", "drums": "#f87171"}
 FADE_S = 0.01                # identical edge fades on every file keep the loop seam click-free and base - stems exact
 # User decision 2026-11-21: Say My Name and Somebody Will Do Something replace One Day More and Masquerade.
 # Aladdin stays out (2026-11-19: too long to stream comfortably).
