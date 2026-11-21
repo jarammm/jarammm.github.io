@@ -13,7 +13,7 @@ For each song this writes the full recording, cut into fixed-length FLAC chunks 
                 rest; temp/vocal_sep/mvsep_families.py), and the last rest is the pad "other";
               demucs6_mvsep_demucs6: as demucs6_mvsep, then that last rest is split by htdemucs_6s once more;
                 its drums, bass, piano and guitar are added to those pads and its "other" is the pad "other"
-                (user decision 2026-11-21, Say My Name);
+                (user decision 2026-11-21, Say My Name and Wicked);
               demucs4: htdemucs_ft gives drums, bass, and guitar (its "other" stem).
               Neither keeps demucs' "vocals" stem (the voice the MelBand split left in the accompaniment) as a
               pad; it stays inside the mix base. Demucs stems sum to the accompaniment to -15..-22 dB.
@@ -71,7 +71,7 @@ FADE_S = 0.01                # identical edge fades on every file keep the loop 
 # Aladdin stays out (2026-11-19: too long to stream comfortably).
 DEFAULT_SONGS = ["Beetlejuice - Say My Name", "Lizzie - Somebody Will Do Something", "Wicked - No One Mourns the Wicked"]
 ACCOMP_SPLIT = {"Beetlejuice - Say My Name": "demucs6_mvsep_demucs6", "Lizzie - Somebody Will Do Something": "demucs4",
-                "Wicked - No One Mourns the Wicked": "demucs6_mvsep"}
+                "Wicked - No One Mourns the Wicked": "demucs6_mvsep_demucs6"}
 # Fields the corpus metadata gets wrong or lacks. The Lizzie upload is a third-party channel with no track
 # metadata: its uploader is not a performer, and the music/lyrics credits come from Wikipedia (2026-11-21;
 # the lyrics credit lists only the name that could be confirmed there).
