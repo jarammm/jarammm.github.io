@@ -1,12 +1,12 @@
 {
   "songs": [
     {
-      "title": "Les Misérables - One Day More",
-      "manifest": "les-mis-rables-one-day-more/stems.json"
+      "title": "Beetlejuice - Say My Name",
+      "manifest": "beetlejuice-say-my-name/stems.json"
     },
     {
-      "title": "The Phantom of the Opera - Masquerade / Why So Silent",
-      "manifest": "the-phantom-of-the-opera-masquerade-why-so-silent/stems.json"
+      "title": "Lizzie the Musical - Somebody Will Do Something",
+      "manifest": "lizzie-the-musical-somebody-will-do-something/stems.json"
     },
     {
       "title": "Wicked - No One Mourns The Wicked",

@@ -39,8 +39,9 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
 
 ## Songs
 
-The song picker reads `audio/songs.json`. The published set is three numbers from official cast recordings;
-see Copyright. `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
+The song picker reads `audio/songs.json`. The published set is three numbers from cast recordings; see
+Copyright. Pads differ per song: Beetlejuice and Wicked have 10 (vocals, ensemble and 8 instrument classes),
+Lizzie has 6 (vocals, ensemble, and drums, bass, other and vocal leak from demucs). `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
 
 "Other sources (for development)" at the bottom loads a synthesized nine-stem demo or local stems held in
 memory (a folder with `stems.json`, or audio files that become pads in name order).
@@ -76,14 +77,15 @@ Keyboard shortcuts follow the pad order: `1`–`0`, then `Q`… (physical keys, 
 ### Building the set
 
 `tools/build_listening_set.py` builds the songs from the lab's `musical-textsetting` outputs into
-`stage-generator/audio/` (FLAC, about 370 MB for three songs; Aladdin is left out for length). Run it with
+`stage-generator/audio/` (FLAC, about 350 MB for three songs). The accompaniment is split per song, either
+into 8 instrument classes (MVSep Mega 53, regrouped) or into htdemucs_ft's 4 stems. Run it with
 `uv run`; its header documents how the stems are scaled onto the original mix and how the bases are formed.
 
 ### Copyright
 
-The songs in `audio/` are official cast recordings downloaded from YouTube: *Les Misérables* "One Day More",
-*The Phantom of the Opera* "Masquerade / Why So Silent" and *Wicked* "No One Mourns the Wicked". All rights
-belong to the respective rights holders (composers, lyricists, performers and labels). Each song's
+The songs in `audio/` are cast recordings downloaded from YouTube: *Beetlejuice* "Say My Name" and *Wicked*
+"No One Mourns the Wicked" (official uploads), and *Lizzie* "Somebody Will Do Something" (a third-party
+upload). All rights belong to the respective rights holders (composers, lyricists, performers and labels). Each song's
 `stems.json` carries a `credits` block (work, song, performers, music, lyrics, source URL), and the page shows
 it under the song title. The separated stems derived from them are for research listening only.
 

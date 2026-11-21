@@ -995,6 +995,7 @@
       "accompaniment": 1.3513,
       "mix_residual_db": -66.9
     },
+    "accompaniment_split": "mega53_9",
     "instrument_written_gain_db": -1.48,
     "vocals_tracks": [
       "GLINDA"
