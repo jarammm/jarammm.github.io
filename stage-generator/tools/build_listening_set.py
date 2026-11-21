@@ -11,6 +11,9 @@ For each song this writes the full recording, cut into fixed-length FLAC chunks 
               demucs6_mvsep: htdemucs_6s gives drums, bass, piano and guitar; its "other" goes through
                 MVSep's family models as a chain (Brass, then Woodwind on the rest, then Bowed Strings on that
                 rest; temp/vocal_sep/mvsep_families.py), and the last rest is the pad "other";
+              demucs6_mvsep_demucs6: as demucs6_mvsep, then that last rest is split by htdemucs_6s once more;
+                its drums, bass, piano and guitar are added to those pads and its "other" is the pad "other"
+                (user decision 2026-11-21, Say My Name);
               demucs4: htdemucs_ft gives drums, bass, and guitar (its "other" stem).
               Neither keeps demucs' "vocals" stem (the voice the MelBand split left in the accompaniment) as a
               pad; it stays inside the mix base. Demucs stems sum to the accompaniment to -15..-22 dB.
@@ -46,15 +49,18 @@ from scipy.signal import resample_poly
 REPO = Path(__file__).resolve().parents[2]
 SR = 44100
 CHUNK_S = 20                 # seconds per streamed chunk: ~1 MB of FLAC per source, small enough to fetch ahead
-# Pad id -> file under temp/vocal_sep/out/ ({song} is the song folder name), in pad order.
+# Pad id -> files under temp/vocal_sep/out/ that are summed into it ({song} is the song folder name), in pad order.
 # User decisions 2026-11-21: Lizzie's demucs "other" is the guitar; MVSep's family models, not Mega 53.
+_MVSEP = {"bowed_strings": ["mvsep/{song}/bowed_strings.flac"], "woodwind": ["mvsep/{song}/woodwind.flac"],
+          "brass": ["mvsep/{song}/brass.flac"]}
 SPLITS = {
-    "demucs6_mvsep": {"drums": "demucs6/{song}/drums.wav", "bass": "demucs6/{song}/bass.wav",
-                      "piano": "demucs6/{song}/piano.wav", "guitar": "demucs6/{song}/guitar.wav",
-                      "bowed_strings": "mvsep/{song}/bowed_strings.flac", "woodwind": "mvsep/{song}/woodwind.flac",
-                      "brass": "mvsep/{song}/brass.flac", "other": "mvsep/{song}/rest_3_after_bowed_strings.flac"},
-    "demucs4": {"drums": "demucs4/{song}/drums.wav", "bass": "demucs4/{song}/bass.wav",
-                "guitar": "demucs4/{song}/other.wav"},
+    "demucs6_mvsep": {**{k: [f"demucs6/{{song}}/{k}.wav"] for k in ("drums", "bass", "piano", "guitar")}, **_MVSEP,
+                      "other": ["mvsep/{song}/rest_3_after_bowed_strings.flac"]},
+    "demucs6_mvsep_demucs6": {**{k: [f"demucs6/{{song}}/{k}.wav", f"demucs6_rest/{{song}}/{k}.wav"]
+                                 for k in ("drums", "bass", "piano", "guitar")}, **_MVSEP,
+                              "other": ["demucs6_rest/{song}/other.wav"]},
+    "demucs4": {"drums": ["demucs4/{song}/drums.wav"], "bass": ["demucs4/{song}/bass.wav"],
+                "guitar": ["demucs4/{song}/other.wav"]},
 }
 LABELS = {"vocals": "Vocals", "drums": "Drums", "bass": "Bass", "piano": "Piano", "guitar": "Guitar",
           "bowed_strings": "Bowed strings", "woodwind": "Woodwind", "brass": "Brass", "other": "Other"}
@@ -64,7 +70,7 @@ FADE_S = 0.01                # identical edge fades on every file keep the loop 
 # User decision 2026-11-21: Say My Name and Somebody Will Do Something replace One Day More and Masquerade.
 # Aladdin stays out (2026-11-19: too long to stream comfortably).
 DEFAULT_SONGS = ["Beetlejuice - Say My Name", "Lizzie - Somebody Will Do Something", "Wicked - No One Mourns the Wicked"]
-ACCOMP_SPLIT = {"Beetlejuice - Say My Name": "demucs6_mvsep", "Lizzie - Somebody Will Do Something": "demucs4",
+ACCOMP_SPLIT = {"Beetlejuice - Say My Name": "demucs6_mvsep_demucs6", "Lizzie - Somebody Will Do Something": "demucs4",
                 "Wicked - No One Mourns the Wicked": "demucs6_mvsep"}
 # Fields the corpus metadata gets wrong or lacks. The Lizzie upload is a third-party channel with no track
 # metadata: its uploader is not a performer, and the music/lyrics credits come from Wikipedia (2026-11-21;
@@ -150,8 +156,8 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
 
     split = ACCOMP_SPLIT[song]
     stems = {"vocals": gv * voc}  # (T, 2)
-    for k, f in SPLITS[split].items():
-        stems[k] = ga * read(vocal_sep / f.format(song=song))[:n]  # (T, 2)
+    for k, fs in SPLITS[split].items():
+        stems[k] = ga * sum(read(vocal_sep / f.format(song=song))[:n] for f in fs)  # (T, 2)
     del voc, acc, mix48
 
     fade = np.ones(n, np.float32)
@@ -207,7 +213,7 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
             "level_db_note": "song RMS relative to the song mix",
             "source": {"mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
                        "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
-                       "instruments": {k: f"temp/vocal_sep/out/{f}" for k, f in SPLITS[split].items()}},
+                       "instruments": {k: [f"temp/vocal_sep/out/{f}" for f in fs] for k, fs in SPLITS[split].items()}},
         },
     }
     (out / "stems.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
