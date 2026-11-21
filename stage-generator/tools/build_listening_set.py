@@ -24,6 +24,11 @@ Everything is put on the scale of the original mix so that "base - pressed stems
   - Instrument classes were separated from the MelBand accompaniment and written with a per-song gain
     (levels.csv `written_gain_db`), which is undone before the accompaniment scale is applied. The demucs4
     stems are float WAVs at the accompaniment's own scale, so only the accompaniment scale applies.
+  - mega53_9 songs only: the 8 classes together come out quieter than the accompaniment they were split
+    from (Mega 53 is not mixture-consistent; Say My Name -1.3 dB, Wicked -2.4 dB). Every class of the song
+    is multiplied by one least-squares gain that brings their sum closest to the accompaniment base
+    (mix - vocals), user decision 2026-11-21. This fixes the level only: what the classes miss (mostly
+    above 6 kHz) stays missing. demucs4 sums to the accompaniment already (gain x1.001), so it is left as is.
 Chunks are cut at exact sample multiples and quantized per sample, so concatenating them gives the same
 samples as one long file; the page plays them back to back on one clock at 44.1 kHz (no resampling).
 The audio is copyrighted cast-recording material. The repository owner chose to publish it with the page
@@ -147,6 +152,15 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
     else:
         for k, f in DEMUCS.items():
             stems[k] = inst_gain * read(vocal_sep / "demucs4" / song / f"{f}.wav")[:n]  # (T, 2)
+    if split == "mega53_9":
+        base = mix.astype(np.float64) - stems["vocals"]                                  # (T, 2)
+        total = sum(stems[k].astype(np.float64) for k in INSTRUMENTS)                    # (T, 2)
+        fit_gain = float((base * total).sum() / (total * total).sum())
+        for k in INSTRUMENTS:
+            stems[k] = (stems[k] * fit_gain).astype(np.float32)
+        del base, total
+    else:
+        fit_gain = 1.0
     del voc, acc, mix48
 
     fade = np.ones(n, np.float32)
@@ -200,6 +214,7 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
             "melband_scale": {"vocals": round(gv, 4), "accompaniment": round(ga, 4), "mix_residual_db": round(resid_db, 1)},
             "accompaniment_split": split,
             "instrument_written_gain_db": written_gain_db,
+            "instrument_fit_gain_db": round(20 * np.log10(fit_gain), 2),
             "vocals_tracks": "MelBand vocals, not split by character",
             "level_db_note": "song RMS relative to the song mix",
             "source": {"mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
@@ -208,7 +223,7 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
         },
     }
     (out / "stems.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-    print(f"{song}: {n / SR:.1f} s, {counts['mix']} chunks x {len(files)} sources, scales voc {gv:.3f} acc {ga:.3f} "
+    print(f"{song}: {n / SR:.1f} s, {counts['mix']} chunks x {len(files)} sources, scales voc {gv:.3f} acc {ga:.3f} inst fit {20 * np.log10(fit_gain):+.2f} dB "
           f"(resid {resid_db:.1f} dB), file gain {manifest['provenance']['file_gain_db']} dB")
     return {"title": manifest["title"], "manifest": f"{out.name}/stems.json"}
 
