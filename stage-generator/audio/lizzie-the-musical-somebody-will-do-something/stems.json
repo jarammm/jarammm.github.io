@@ -1085,6 +1085,7 @@
     },
     "accompaniment_split": "demucs4",
     "instrument_written_gain_db": 0.0,
+    "instrument_fit_gain_db": 0.0,
     "vocals_tracks": "MelBand vocals, not split by character",
     "level_db_note": "song RMS relative to the song mix",
     "source": {

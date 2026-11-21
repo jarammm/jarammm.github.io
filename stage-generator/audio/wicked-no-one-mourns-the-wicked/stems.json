@@ -927,60 +927,60 @@
       "label": "Brass",
       "group": "accompaniment",
       "color": "#facc15",
-      "level_db": -11.0
+      "level_db": -9.6
     },
     {
       "id": "woodwind",
       "label": "Woodwind",
       "group": "accompaniment",
       "color": "#a3e635",
-      "level_db": -15.2
+      "level_db": -13.9
     },
     {
       "id": "bowed_strings",
       "label": "Bowed strings",
       "group": "accompaniment",
       "color": "#2dd4bf",
-      "level_db": -22.4
+      "level_db": -21.0
     },
     {
       "id": "harp",
       "label": "Harp",
       "group": "accompaniment",
       "color": "#38bdf8",
-      "level_db": -23.3
+      "level_db": -21.9
     },
     {
       "id": "keys",
       "label": "Keys",
       "group": "accompaniment",
       "color": "#4ade80",
-      "level_db": -15.1
+      "level_db": -13.7
     },
     {
       "id": "guitar",
       "label": "Guitar",
       "group": "accompaniment",
       "color": "#fb923c",
-      "level_db": -25.6
+      "level_db": -24.3
     },
     {
       "id": "drums_perc",
       "label": "Drums & perc",
       "group": "accompaniment",
       "color": "#f87171",
-      "level_db": -11.0
+      "level_db": -9.6
     },
     {
       "id": "bass",
       "label": "Bass",
       "group": "accompaniment",
       "color": "#818cf8",
-      "level_db": -16.9
+      "level_db": -15.5
     }
   ],
   "provenance": {
-    "file_gain_db": -3.19,
+    "file_gain_db": -4.58,
     "melband_scale": {
       "vocals": 1.2726,
       "accompaniment": 1.3513,
@@ -988,6 +988,7 @@
     },
     "accompaniment_split": "mega53_9",
     "instrument_written_gain_db": -1.48,
+    "instrument_fit_gain_db": 1.39,
     "vocals_tracks": "MelBand vocals, not split by character",
     "level_db_note": "song RMS relative to the song mix",
     "source": {
