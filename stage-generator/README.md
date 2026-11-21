@@ -15,8 +15,8 @@ and can report it to a show bridge that drives real-time visuals. It is a static
 | Pool | Pads that act | Base for Subtract (in the published songs) |
 |---|---|---|
 | **Mix** | every stem | the original recording |
-| **Accompaniment** | stems with `group: "accompaniment"` | original recording − vocals − ensemble |
-| **Vocals** | stems with `group: "vocals"` | vocals + ensemble |
+| **Accompaniment** | stems with `group: "accompaniment"` | original recording − vocals |
+| **Vocals** | stems with `group: "vocals"` | vocals |
 
 Pads outside the pool are disabled. A base is a signed sum of sources declared in the manifest; without one,
 Subtract starts from the sum of the pool's stems. Separated stems rarely add up to the recording, so
@@ -40,9 +40,8 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
 ## Songs
 
 The song picker reads `audio/songs.json`. The published set is three numbers from cast recordings; see
-Copyright. Pads differ per song. Wicked has 10: vocals (principals) and ensemble, split by character, and
-8 instrument classes. Beetlejuice has 9: one vocals stem (not split by voice) and 8 instrument classes.
-Lizzie has 4: one vocals stem, and drums, bass and guitar from demucs (its "other" stem; its leftover
+Copyright. Every song has one vocals stem (the separated voice, not split into singers); the accompaniment
+pads differ per song. Beetlejuice and Wicked have 9: vocals and 8 instrument classes. Lizzie has 4: one vocals stem, and drums, bass and guitar from demucs (its "other" stem; its leftover
 "vocals" stem is not a pad). `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
 
 "Other sources (for development)" at the bottom loads a synthesized nine-stem demo or local stems held in
