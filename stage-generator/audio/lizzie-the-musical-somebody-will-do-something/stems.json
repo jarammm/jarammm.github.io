@@ -1069,18 +1069,11 @@
       "level_db": -8.0
     },
     {
-      "id": "other",
-      "label": "Other",
+      "id": "guitar",
+      "label": "Guitar",
       "group": "accompaniment",
-      "color": "#2dd4bf",
+      "color": "#fb923c",
       "level_db": -7.3
-    },
-    {
-      "id": "vocal_leak",
-      "label": "Vocal leak",
-      "group": "accompaniment",
-      "color": "#94a3b8",
-      "level_db": -32.7
     }
   ],
   "provenance": {

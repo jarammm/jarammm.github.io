@@ -42,7 +42,8 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
 The song picker reads `audio/songs.json`. The published set is three numbers from cast recordings; see
 Copyright. Pads differ per song. Wicked has 10: vocals (principals) and ensemble, split by character, and
 8 instrument classes. Beetlejuice has 9: one vocals stem (not split by voice) and 8 instrument classes.
-Lizzie has 5: one vocals stem, and drums, bass, other and vocal leak from demucs. `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
+Lizzie has 4: one vocals stem, and drums, bass and guitar from demucs (its "other" stem; its leftover
+"vocals" stem is not a pad). `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
 
 "Other sources (for development)" at the bottom loads a synthesized nine-stem demo or local stems held in
 memory (a folder with `stems.json`, or audio files that become pads in name order).
@@ -79,7 +80,7 @@ Keyboard shortcuts follow the pad order: `1`–`0`, then `Q`… (physical keys, 
 
 `tools/build_listening_set.py` builds the songs from the lab's `musical-textsetting` outputs into
 `stage-generator/audio/` (FLAC, about 350 MB for three songs). The accompaniment is split per song, either
-into 8 instrument classes (MVSep Mega 53, regrouped) or into htdemucs_ft's 4 stems. Run it with
+into 8 instrument classes (MVSep Mega 53, regrouped) or into htdemucs_ft's 4-stem split. Run it with
 `uv run`; its header documents how the stems are scaled onto the original mix and how the bases are formed.
 
 ### Copyright
