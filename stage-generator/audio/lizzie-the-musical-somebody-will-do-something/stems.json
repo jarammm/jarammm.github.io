@@ -1040,12 +1040,10 @@
     },
     "accompaniment": {
       "rec:mix": 1,
-      "vocals": -1,
-      "ensemble": -1
+      "vocals": -1
     },
     "vocals": {
-      "vocals": 1,
-      "ensemble": 1
+      "vocals": 1
     }
   },
   "stems": [
@@ -1054,14 +1052,7 @@
       "label": "Vocals",
       "group": "vocals",
       "color": "#f472b6",
-      "level_db": -7.9
-    },
-    {
-      "id": "ensemble",
-      "label": "Ensemble",
-      "group": "vocals",
-      "color": "#c084fc",
-      "level_db": -20.1
+      "level_db": -7.5
     },
     {
       "id": "drums",
@@ -1101,17 +1092,12 @@
     },
     "accompaniment_split": "demucs4",
     "instrument_written_gain_db": 0.0,
-    "vocals_tracks": [
-      "BRIDGET",
-      "LIZZIE"
-    ],
-    "ensemble_track": "others",
+    "vocals_tracks": "MelBand vocals, not split by character",
     "level_db_note": "song RMS relative to the song mix",
     "source": {
       "mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
       "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
-      "instruments": "temp/vocal_sep/out/demucs4/<song>/",
-      "characters": "temp/vocal_sep/out/recursive_tagged/<song>/ (24 kHz mono)"
+      "instruments": "temp/vocal_sep/out/demucs4/<song>/"
     }
   }
 }

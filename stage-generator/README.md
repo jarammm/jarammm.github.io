@@ -40,8 +40,9 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
 ## Songs
 
 The song picker reads `audio/songs.json`. The published set is three numbers from cast recordings; see
-Copyright. Pads differ per song: Beetlejuice and Wicked have 10 (vocals, ensemble and 8 instrument classes),
-Lizzie has 6 (vocals, ensemble, and drums, bass, other and vocal leak from demucs). `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
+Copyright. Pads differ per song. Wicked has 10: vocals (principals) and ensemble, split by character, and
+8 instrument classes. Beetlejuice has 9: one vocals stem (not split by voice) and 8 instrument classes.
+Lizzie has 5: one vocals stem, and drums, bass, other and vocal leak from demucs. `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
 
 "Other sources (for development)" at the bottom loads a synthesized nine-stem demo or local stems held in
 memory (a folder with `stems.json`, or audio files that become pads in name order).
