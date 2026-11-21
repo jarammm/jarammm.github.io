@@ -201,8 +201,12 @@ export async function loadFromFiles(ctx, fileList) {
   return decodeFiles(ctx, manifest, (file) => byName.get(basename(file)).arrayBuffer());
 }
 
+// A rebuilt song keeps its URLs, so a cached manifest or chunk can outlive the files on the server
+// (GitHub Pages sends max-age=600). "no-cache" revalidates every fetch; an unchanged file costs a 304.
+const FRESH = { cache: "no-cache" };
+
 async function fetchBytes(url) {
-  const r = await fetch(url);
+  const r = await fetch(url, FRESH);
   if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
   return r.arrayBuffer();
 }
@@ -213,7 +217,7 @@ async function fetchBytes(url) {
  */
 export async function loadFromUrl(ctx, manifestUrl) {
   const base = new URL(manifestUrl, location.href);
-  const res = await fetch(base);
+  const res = await fetch(base, FRESH);
   if (!res.ok) throw new Error(`${manifestUrl}: HTTP ${res.status}`);
   const manifest = normalizeManifest(await res.json());
   if (!manifest.chunks) return decodeFiles(ctx, manifest, (file) => fetchBytes(new URL(file, base)));
