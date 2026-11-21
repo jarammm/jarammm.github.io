@@ -6,19 +6,17 @@
 
 For each song this writes the full recording, cut into fixed-length FLAC chunks so the page can stream it:
   recording : mix (the original recording)
-  stems     : the voice, either as vocals (principal characters) + ensemble (everyone else) for songs in
-              CHARACTER_SPLIT, or as one vocals stem (the MelBand vocals as they are) for the others;
-              and the accompaniment split one of two ways:
+  stems     : vocals (the MelBand vocals as they are; voices are never split from each other, user decision
+              2026-11-21) and the accompaniment split one of two ways:
               mega53_9 (default): 8 instrument classes (brass, woodwind, bowed_strings, harp, keys, guitar,
                 drums_perc, bass) from MVSep Mega 53 regrouped;
               demucs4 (songs in ACCOMP_SPLIT): htdemucs_ft's 4-stem split of the accompaniment, published as
                 drums, bass and guitar (its "other" stem). Its "vocals" stem, the voice the MelBand split left
                 in the accompaniment, is not a pad; it stays inside the mix base.
   bases     : what "subtract" removes from, as signed sums of the files above:
-              mix = recording; vocals = vocals + ensemble; accompaniment = mix - vocals - ensemble.
-              The voice stems sum to the MelBand vocals (-75..-84 dB), and MelBand vocals + accompaniment
-              reconstruct the mix (about -66 dB), so these sums stand in for the MelBand files without
-              shipping them.
+              mix = recording; vocals = vocals; accompaniment = mix - vocals.
+              MelBand vocals + accompaniment reconstruct the mix (about -66 dB), so mix - vocals stands in for
+              the MelBand accompaniment without shipping it.
 Everything is put on the scale of the original mix so that "base - pressed stems" is meaningful:
   - The MelBand files are stored quieter than the mix (vocals + accompaniment at unity leave a
     -10..-20 dB residual; with least-squares scales the residual is about -66 dB). The two scales are
@@ -26,11 +24,6 @@ Everything is put on the scale of the original mix so that "base - pressed stems
   - Instrument classes were separated from the MelBand accompaniment and written with a per-song gain
     (levels.csv `written_gain_db`), which is undone before the accompaniment scale is applied. The demucs4
     stems are float WAVs at the accompaniment's own scale, so only the accompaniment scale applies.
-  - Character tracks (CHARACTER_SPLIT songs only; 24 kHz mono, from the MelBand vocals) are resampled to 44.1 kHz and copied to
-    both channels. That drops the stereo side (reverb, width; about -6 dB of the vocals) and the band
-    above 12 kHz. The missing part, vocals - (vocals + ensemble), is shared back between the two
-    tracks by their smoothed energy share at each moment, so the two voice stems sum to the MelBand
-    vocals exactly while the character assignment stays as it was.
 Chunks are cut at exact sample multiples and quantized per sample, so concatenating them gives the same
 samples as one long file; the page plays them back to back on one clock at 44.1 kHz (no resampling).
 The audio is copyrighted cast-recording material. The repository owner chose to publish it with the page
@@ -54,10 +47,10 @@ CHUNK_S = 20                 # seconds per streamed chunk: ~1 MB of FLAC per sou
 INSTRUMENTS = ["brass", "woodwind", "bowed_strings", "harp", "keys", "guitar", "drums_perc", "bass"]
 # stem id -> demucs file. User decision 2026-11-21 (Lizzie): "other" is the guitar, and "vocals" is dropped.
 DEMUCS = {"drums": "drums", "bass": "bass", "guitar": "other"}
-LABELS = {"vocals": "Vocals", "ensemble": "Ensemble", "brass": "Brass", "woodwind": "Woodwind",
+LABELS = {"vocals": "Vocals", "brass": "Brass", "woodwind": "Woodwind",
           "bowed_strings": "Bowed strings", "harp": "Harp", "keys": "Keys", "guitar": "Guitar",
           "drums_perc": "Drums & perc", "bass": "Bass", "drums": "Drums"}
-COLORS = {"vocals": "#f472b6", "ensemble": "#c084fc", "brass": "#facc15", "woodwind": "#a3e635",
+COLORS = {"vocals": "#f472b6", "brass": "#facc15", "woodwind": "#a3e635",
           "bowed_strings": "#2dd4bf", "harp": "#38bdf8", "keys": "#4ade80", "guitar": "#fb923c",
           "drums_perc": "#f87171", "bass": "#818cf8", "drums": "#f87171"}
 FADE_S = 0.01                # identical edge fades on every file keep the loop seam click-free and base - stems exact
@@ -65,9 +58,6 @@ FADE_S = 0.01                # identical edge fades on every file keep the loop 
 # Aladdin stays out (2026-11-19: too long to stream comfortably).
 DEFAULT_SONGS = ["Beetlejuice - Say My Name", "Lizzie - Somebody Will Do Something", "Wicked - No One Mourns the Wicked"]
 ACCOMP_SPLIT = {"Lizzie - Somebody Will Do Something": "demucs4"}  # user decision 2026-11-21; others: mega53_9
-# Songs whose voice is split by character. User decision 2026-11-21: the new songs are separated only in
-# the accompaniment, never voice from voice.
-CHARACTER_SPLIT = {"Wicked - No One Mourns the Wicked"}
 # Fields the corpus metadata gets wrong or lacks. The Lizzie upload is a third-party channel with no track
 # metadata: its uploader is not a performer, and the music/lyrics credits come from Wikipedia (2026-11-21;
 # the lyrics credit lists only the name that could be confirmed there).
@@ -91,40 +81,6 @@ def read(path: Path) -> np.ndarray:
     if sr != SR:
         raise ValueError(f"{path}: expected {SR} Hz, got {sr}")
     return x
-
-
-def to_stereo_44k(path: Path, n: int) -> np.ndarray:
-    """Character track (24 kHz mono) -> (n, 2) at 44.1 kHz."""
-    x, sr = sf.read(path, dtype="float32")          # (T24,)
-    y = resample_poly(x, SR // 300, sr // 300)      # 147/80 for 24 kHz; (T44,)
-    y = np.pad(y, (0, max(0, n - len(y))))[:n]
-    return np.repeat(y[:, None], 2, axis=1).astype(np.float32)  # (n, 2)
-
-
-def share_residual(tracks: list, target: np.ndarray, smooth_s: float = 0.25) -> list:
-    """Add target - sum(tracks) back to the tracks, split by each track's smoothed energy share.
-
-    tracks: list of (T, 2); target: (T, 2). Returns tracks that sum to target. Smoothing over ~0.25 s lets a
-    reverb tail follow the voice that just sang instead of flipping frame by frame.
-    """
-    resid = target - sum(tracks)                                            # (T, 2)
-    win = int(smooth_s * SR)
-
-    def moving_mean(x: np.ndarray) -> np.ndarray:
-        """Centered moving average via a cumulative sum (direct convolution is far too slow at song length)."""
-        c = np.concatenate([[0.0], np.cumsum(x)])                            # (T+1,)
-        i = np.arange(len(x))
-        lo, hi = np.clip(i - win // 2, 0, len(x)), np.clip(i + win // 2 + 1, 0, len(x))
-        return (c[hi] - c[lo]) / (hi - lo)
-
-    env = [moving_mean(t.mean(1).astype(np.float64) ** 2) for t in tracks]  # K x (T,)
-    total = sum(env) + 1e-12
-    shares = [e / total for e in env]
-    # Where every track is silent the share is undefined; split evenly there.
-    silent = sum(env) < 1e-10
-    for s in shares:
-        s[silent] = 1.0 / len(tracks)
-    return [t + (s[:, None] * resid).astype(np.float32) for t, s in zip(tracks, shares)]
 
 
 def fit_scales(mix: np.ndarray, voc: np.ndarray, acc: np.ndarray) -> tuple[float, float, float]:
@@ -184,15 +140,7 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
     inst_gain = ga * 10 ** (-written_gain_db / 20)
 
     stems = {}
-    by_character = song in CHARACTER_SPLIT
-    if by_character:
-        char_dir = vocal_sep / "recursive_tagged" / song
-        chars = sorted(p for p in char_dir.glob("*.wav") if p.stem != "others")
-        stems["vocals"] = gv * sum(to_stereo_44k(p, n) for p in chars)
-        stems["ensemble"] = gv * to_stereo_44k(char_dir / "others.wav", n)
-        stems["vocals"], stems["ensemble"] = share_residual([stems["vocals"], stems["ensemble"]], gv * voc)
-    else:
-        stems["vocals"] = gv * voc  # (T, 2)
+    stems["vocals"] = gv * voc  # (T, 2)
     if split == "mega53_9":
         for k in INSTRUMENTS:
             stems[k] = inst_gain * read(vocal_sep / "mega53_9" / song / f"{k}.flac")[:n]
@@ -242,23 +190,21 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
         "recordings": [{"id": "mix", "label": "Original mix"}],
         "bases": {
             "mix": {"rec:mix": 1},
-            "accompaniment": {"rec:mix": 1, "vocals": -1} | ({"ensemble": -1} if by_character else {}),
-            "vocals": {"vocals": 1} | ({"ensemble": 1} if by_character else {}),
+            "accompaniment": {"rec:mix": 1, "vocals": -1},
+            "vocals": {"vocals": 1},
         },
-        "stems": [{"id": s, "label": LABELS[s], "group": "vocals" if s in ("vocals", "ensemble") else "accompaniment",
+        "stems": [{"id": s, "label": LABELS[s], "group": "vocals" if s == "vocals" else "accompaniment",
                    "color": COLORS[s], "level_db": rel(x)} for s, x in stems.items()],
         "provenance": {
             "file_gain_db": round(20 * np.log10(file_gain), 2),
             "melband_scale": {"vocals": round(gv, 4), "accompaniment": round(ga, 4), "mix_residual_db": round(resid_db, 1)},
             "accompaniment_split": split,
             "instrument_written_gain_db": written_gain_db,
-            **({"vocals_tracks": [p.stem for p in chars], "ensemble_track": "others"} if by_character
-               else {"vocals_tracks": "MelBand vocals, not split by character"}),
+            "vocals_tracks": "MelBand vocals, not split by character",
             "level_db_note": "song RMS relative to the song mix",
             "source": {"mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
                        "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
-                       "instruments": f"temp/vocal_sep/out/{split}/<song>/"}
-                      | ({"characters": "temp/vocal_sep/out/recursive_tagged/<song>/ (24 kHz mono)"} if by_character else {}),
+                       "instruments": f"temp/vocal_sep/out/{split}/<song>/"},
         },
     }
     (out / "stems.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
