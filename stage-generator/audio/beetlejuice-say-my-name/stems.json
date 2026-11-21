@@ -603,14 +603,14 @@
       "label": "Piano",
       "group": "accompaniment",
       "color": "#4ade80",
-      "level_db": -21.3
+      "level_db": -20.2
     },
     {
       "id": "guitar",
       "label": "Guitar",
       "group": "accompaniment",
       "color": "#fb923c",
-      "level_db": -14.2
+      "level_db": -14.0
     },
     {
       "id": "bowed_strings",
@@ -638,7 +638,7 @@
       "label": "Other",
       "group": "accompaniment",
       "color": "#94a3b8",
-      "level_db": -18.1
+      "level_db": -20.3
     }
   ],
   "provenance": {
@@ -648,21 +648,41 @@
       "accompaniment": 1.3363,
       "mix_residual_db": -67.6
     },
-    "accompaniment_split": "demucs6_mvsep",
+    "accompaniment_split": "demucs6_mvsep_demucs6",
     "vocals_tracks": "MelBand vocals, not split by character",
     "level_db_note": "song RMS relative to the song mix",
     "source": {
       "mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
       "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
       "instruments": {
-        "drums": "temp/vocal_sep/out/demucs6/{song}/drums.wav",
-        "bass": "temp/vocal_sep/out/demucs6/{song}/bass.wav",
-        "piano": "temp/vocal_sep/out/demucs6/{song}/piano.wav",
-        "guitar": "temp/vocal_sep/out/demucs6/{song}/guitar.wav",
-        "bowed_strings": "temp/vocal_sep/out/mvsep/{song}/bowed_strings.flac",
-        "woodwind": "temp/vocal_sep/out/mvsep/{song}/woodwind.flac",
-        "brass": "temp/vocal_sep/out/mvsep/{song}/brass.flac",
-        "other": "temp/vocal_sep/out/mvsep/{song}/rest_3_after_bowed_strings.flac"
+        "drums": [
+          "temp/vocal_sep/out/demucs6/{song}/drums.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/drums.wav"
+        ],
+        "bass": [
+          "temp/vocal_sep/out/demucs6/{song}/bass.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/bass.wav"
+        ],
+        "piano": [
+          "temp/vocal_sep/out/demucs6/{song}/piano.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/piano.wav"
+        ],
+        "guitar": [
+          "temp/vocal_sep/out/demucs6/{song}/guitar.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/guitar.wav"
+        ],
+        "bowed_strings": [
+          "temp/vocal_sep/out/mvsep/{song}/bowed_strings.flac"
+        ],
+        "woodwind": [
+          "temp/vocal_sep/out/mvsep/{song}/woodwind.flac"
+        ],
+        "brass": [
+          "temp/vocal_sep/out/mvsep/{song}/brass.flac"
+        ],
+        "other": [
+          "temp/vocal_sep/out/demucs6_rest/{song}/other.wav"
+        ]
       }
     }
   }
