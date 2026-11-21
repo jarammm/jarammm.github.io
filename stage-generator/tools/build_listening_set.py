@@ -7,12 +7,13 @@
 For each song this writes the full recording, cut into fixed-length FLAC chunks so the page can stream it:
   recording : mix (the original recording)
   stems     : vocals (the MelBand vocals as they are; voices are never split from each other, user decision
-              2026-11-21) and the accompaniment split one of two ways:
-              mega53_9 (default): 8 instrument classes (brass, woodwind, bowed_strings, harp, keys, guitar,
-                drums_perc, bass) from MVSep Mega 53 regrouped;
-              demucs4 (songs in ACCOMP_SPLIT): htdemucs_ft's 4-stem split of the accompaniment, published as
-                drums, bass and guitar (its "other" stem). Its "vocals" stem, the voice the MelBand split left
-                in the accompaniment, is not a pad; it stays inside the mix base.
+              2026-11-21) and the accompaniment split one of two ways (ACCOMP_SPLIT, user decisions 2026-11-21):
+              demucs6_mvsep: htdemucs_6s gives drums, bass, piano and guitar; its "other" goes through
+                MVSep's family models as a chain (Brass, then Woodwind on the rest, then Bowed Strings on that
+                rest; temp/vocal_sep/mvsep_families.py), and the last rest is the pad "other";
+              demucs4: htdemucs_ft gives drums, bass, and guitar (its "other" stem).
+              Neither keeps demucs' "vocals" stem (the voice the MelBand split left in the accompaniment) as a
+              pad; it stays inside the mix base. Demucs stems sum to the accompaniment to -15..-22 dB.
   bases     : what "subtract" removes from, as signed sums of the files above:
               mix = recording; vocals = vocals; accompaniment = mix - vocals.
               MelBand vocals + accompaniment reconstruct the mix (about -66 dB), so mix - vocals stands in for
@@ -21,20 +22,16 @@ Everything is put on the scale of the original mix so that "base - pressed stems
   - The MelBand files are stored quieter than the mix (vocals + accompaniment at unity leave a
     -10..-20 dB residual; with least-squares scales the residual is about -66 dB). The two scales are
     fitted per song against the mix and applied to the MelBand files and everything derived from them.
-  - Instrument classes were separated from the MelBand accompaniment and written with a per-song gain
-    (levels.csv `written_gain_db`), which is undone before the accompaniment scale is applied. The demucs4
-    stems are float WAVs at the accompaniment's own scale, so only the accompaniment scale applies.
-  - mega53_9 songs only: the 8 classes together come out quieter than the accompaniment they were split
-    from (Mega 53 is not mixture-consistent; Say My Name -1.3 dB, Wicked -2.4 dB). Every class of the song
-    is multiplied by one least-squares gain that brings their sum closest to the accompaniment base
-    (mix - vocals), user decision 2026-11-21. This fixes the level only: what the classes miss (mostly
-    above 6 kHz) stays missing. demucs4 sums to the accompaniment already (gain x1.001), so it is left as is.
+  - The instrument stems are at the MelBand accompaniment's own scale (demucs and MVSep add no gain), so
+    the accompaniment scale is all they need. (The earlier Mega 53 9-class split lost 1.3-2.4 dB and most of
+    the band above 6 kHz because its outputs do not sum to its input; both splits here keep a remainder.)
 Chunks are cut at exact sample multiples and quantized per sample, so concatenating them gives the same
 samples as one long file; the page plays them back to back on one clock at 44.1 kHz (no resampling).
 The audio is copyrighted cast-recording material. The repository owner chose to publish it with the page
 and credit each recording (2026-11-19).
 
 Run: uv run stage-generator/tools/build_listening_set.py [--source DIR] [--out DIR] [--songs NAME ...]
+     [--build NAME ...]   (rebuild only these; the other listed songs keep their published files)
 """
 import argparse
 import csv
@@ -49,20 +46,26 @@ from scipy.signal import resample_poly
 REPO = Path(__file__).resolve().parents[2]
 SR = 44100
 CHUNK_S = 20                 # seconds per streamed chunk: ~1 MB of FLAC per source, small enough to fetch ahead
-INSTRUMENTS = ["brass", "woodwind", "bowed_strings", "harp", "keys", "guitar", "drums_perc", "bass"]
-# stem id -> demucs file. User decision 2026-11-21 (Lizzie): "other" is the guitar, and "vocals" is dropped.
-DEMUCS = {"drums": "drums", "bass": "bass", "guitar": "other"}
-LABELS = {"vocals": "Vocals", "brass": "Brass", "woodwind": "Woodwind",
-          "bowed_strings": "Bowed strings", "harp": "Harp", "keys": "Keys", "guitar": "Guitar",
-          "drums_perc": "Drums & perc", "bass": "Bass", "drums": "Drums"}
-COLORS = {"vocals": "#f472b6", "brass": "#facc15", "woodwind": "#a3e635",
-          "bowed_strings": "#2dd4bf", "harp": "#38bdf8", "keys": "#4ade80", "guitar": "#fb923c",
-          "drums_perc": "#f87171", "bass": "#818cf8", "drums": "#f87171"}
+# Pad id -> file under temp/vocal_sep/out/ ({song} is the song folder name), in pad order.
+# User decisions 2026-11-21: Lizzie's demucs "other" is the guitar; MVSep's family models, not Mega 53.
+SPLITS = {
+    "demucs6_mvsep": {"drums": "demucs6/{song}/drums.wav", "bass": "demucs6/{song}/bass.wav",
+                      "piano": "demucs6/{song}/piano.wav", "guitar": "demucs6/{song}/guitar.wav",
+                      "bowed_strings": "mvsep/{song}/bowed_strings.flac", "woodwind": "mvsep/{song}/woodwind.flac",
+                      "brass": "mvsep/{song}/brass.flac", "other": "mvsep/{song}/rest_3_after_bowed_strings.flac"},
+    "demucs4": {"drums": "demucs4/{song}/drums.wav", "bass": "demucs4/{song}/bass.wav",
+                "guitar": "demucs4/{song}/other.wav"},
+}
+LABELS = {"vocals": "Vocals", "drums": "Drums", "bass": "Bass", "piano": "Piano", "guitar": "Guitar",
+          "bowed_strings": "Bowed strings", "woodwind": "Woodwind", "brass": "Brass", "other": "Other"}
+COLORS = {"vocals": "#f472b6", "drums": "#f87171", "bass": "#818cf8", "piano": "#4ade80", "guitar": "#fb923c",
+          "bowed_strings": "#2dd4bf", "woodwind": "#a3e635", "brass": "#facc15", "other": "#94a3b8"}
 FADE_S = 0.01                # identical edge fades on every file keep the loop seam click-free and base - stems exact
 # User decision 2026-11-21: Say My Name and Somebody Will Do Something replace One Day More and Masquerade.
 # Aladdin stays out (2026-11-19: too long to stream comfortably).
 DEFAULT_SONGS = ["Beetlejuice - Say My Name", "Lizzie - Somebody Will Do Something", "Wicked - No One Mourns the Wicked"]
-ACCOMP_SPLIT = {"Lizzie - Somebody Will Do Something": "demucs4"}  # user decision 2026-11-21; others: mega53_9
+ACCOMP_SPLIT = {"Beetlejuice - Say My Name": "demucs6_mvsep", "Lizzie - Somebody Will Do Something": "demucs4",
+                "Wicked - No One Mourns the Wicked": "demucs6_mvsep"}
 # Fields the corpus metadata gets wrong or lacks. The Lizzie upload is a third-party channel with no track
 # metadata: its uploader is not a performer, and the music/lyrics credits come from Wikipedia (2026-11-21;
 # the lyrics credit lists only the name that could be confirmed there).
@@ -119,6 +122,18 @@ def write_chunks(x: np.ndarray, folder: Path, chunk: int) -> int:
     return k + 1
 
 
+def song_folder(song_dir: Path, out_root: Path) -> Path:
+    """Published folder of a song: slug of "<work> <title>", with the title fixed by CREDITS."""
+    meta = json.loads((song_dir / "song.json").read_text())
+    return out_root / slug(f"{meta['work']} {CREDITS.get(song_dir.name, {}).get('song', meta['title'])}")
+
+
+def published_entry(song_dir: Path, out_root: Path) -> dict:
+    """songs.json entry of a song that is not rebuilt, read from its published stems.json."""
+    folder = song_folder(song_dir, out_root)
+    return {"title": json.loads((folder / "stems.json").read_text())["title"], "manifest": f"{folder.name}/stems.json"}
+
+
 def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
     """Write one song's chunks and stems.json under out_root; returns its songs.json entry."""
     song = song_dir.name
@@ -133,34 +148,10 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
     assert len(mix) == n, f"{song}: mix length {len(mix)} != stems {n}"
     gv, ga, resid_db = fit_scales(mix, voc, acc)
 
-    split = ACCOMP_SPLIT.get(song, "mega53_9")
-    if split == "mega53_9":
-        levels = {}
-        with open(vocal_sep / "mega53_9" / song / "levels.csv") as f:
-            for row in csv.DictReader(f):
-                levels[row["class"]] = float(row["level_rel_accomp_db"])
-        written_gain_db = levels["written_gain_db"]
-    else:
-        written_gain_db = 0.0
-    inst_gain = ga * 10 ** (-written_gain_db / 20)
-
-    stems = {}
-    stems["vocals"] = gv * voc  # (T, 2)
-    if split == "mega53_9":
-        for k in INSTRUMENTS:
-            stems[k] = inst_gain * read(vocal_sep / "mega53_9" / song / f"{k}.flac")[:n]
-    else:
-        for k, f in DEMUCS.items():
-            stems[k] = inst_gain * read(vocal_sep / "demucs4" / song / f"{f}.wav")[:n]  # (T, 2)
-    if split == "mega53_9":
-        base = mix.astype(np.float64) - stems["vocals"]                                  # (T, 2)
-        total = sum(stems[k].astype(np.float64) for k in INSTRUMENTS)                    # (T, 2)
-        fit_gain = float((base * total).sum() / (total * total).sum())
-        for k in INSTRUMENTS:
-            stems[k] = (stems[k] * fit_gain).astype(np.float32)
-        del base, total
-    else:
-        fit_gain = 1.0
+    split = ACCOMP_SPLIT[song]
+    stems = {"vocals": gv * voc}  # (T, 2)
+    for k, f in SPLITS[split].items():
+        stems[k] = ga * read(vocal_sep / f.format(song=song))[:n]  # (T, 2)
     del voc, acc, mix48
 
     fade = np.ones(n, np.float32)
@@ -171,8 +162,7 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
     peak = max(float(np.abs(x).max()) for x in files.values())
     file_gain = min(1.0, 0.999 / peak)                                # same gain on every file keeps base - stems exact
 
-    title = CREDITS.get(song, {}).get("song", meta["title"])
-    out = out_root / slug(f"{meta['work']} {title}")
+    out = song_folder(song_dir, out_root)
     chunk = CHUNK_S * SR
     counts = {name: write_chunks(x * file_gain, out / name, chunk) for name, x in files.items()}
     assert len(set(counts.values())) == 1, counts
@@ -213,17 +203,15 @@ def build_song(song_dir: Path, vocal_sep: Path, out_root: Path) -> dict:
             "file_gain_db": round(20 * np.log10(file_gain), 2),
             "melband_scale": {"vocals": round(gv, 4), "accompaniment": round(ga, 4), "mix_residual_db": round(resid_db, 1)},
             "accompaniment_split": split,
-            "instrument_written_gain_db": written_gain_db,
-            "instrument_fit_gain_db": round(20 * np.log10(fit_gain), 2),
             "vocals_tracks": "MelBand vocals, not split by character",
             "level_db_note": "song RMS relative to the song mix",
             "source": {"mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
                        "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
-                       "instruments": f"temp/vocal_sep/out/{split}/<song>/"},
+                       "instruments": {k: f"temp/vocal_sep/out/{f}" for k, f in SPLITS[split].items()}},
         },
     }
     (out / "stems.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-    print(f"{song}: {n / SR:.1f} s, {counts['mix']} chunks x {len(files)} sources, scales voc {gv:.3f} acc {ga:.3f} inst fit {20 * np.log10(fit_gain):+.2f} dB "
+    print(f"{song}: {n / SR:.1f} s, {counts['mix']} chunks x {len(files)} sources, scales voc {gv:.3f} acc {ga:.3f} ({split}) "
           f"(resid {resid_db:.1f} dB), file gain {manifest['provenance']['file_gain_db']} dB")
     return {"title": manifest["title"], "manifest": f"{out.name}/stems.json"}
 
@@ -233,12 +221,15 @@ def main():
     ap.add_argument("--source", type=Path, default=REPO.parent / "musical-textsetting",
                     help="musical-textsetting project root")
     ap.add_argument("--out", type=Path, default=REPO / "stage-generator" / "audio")
-    ap.add_argument("--songs", nargs="*", default=DEFAULT_SONGS, help="song folder names to build, in picker order")
+    ap.add_argument("--songs", nargs="*", default=DEFAULT_SONGS, help="song folder names in the picker, in order")
+    ap.add_argument("--build", nargs="*", help="rebuild only these of --songs (default: all)")
     args = ap.parse_args()
     share = args.source / "results" / "share_four_songs"
     vocal_sep = args.source / "temp" / "vocal_sep" / "out"
-    dirs = [share / name for name in args.songs]
-    songs = [build_song(d, vocal_sep, args.out) for d in dirs]
+    build = set(args.songs if args.build is None else args.build)
+    assert build <= set(args.songs), f"--build names not in --songs: {build - set(args.songs)}"
+    songs = [build_song(share / name, vocal_sep, args.out) if name in build else published_entry(share / name, args.out)
+             for name in args.songs]
     (args.out / "songs.json").write_text(json.dumps({"songs": songs}, indent=2, ensure_ascii=False))
 
 
