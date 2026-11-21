@@ -41,8 +41,11 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
 
 The song picker reads `audio/songs.json`. The published set is three numbers from cast recordings; see
 Copyright. Every song has one vocals stem (the separated voice, not split into singers); the accompaniment
-pads differ per song. Beetlejuice and Wicked have 9: vocals and 8 instrument classes. Lizzie has 4: one vocals stem, and drums, bass and guitar from demucs (its "other" stem; its leftover
-"vocals" stem is not a pad). `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
+pads differ per song. Beetlejuice has 9: vocals; drums, bass, piano and guitar from demucs (6 stems); and
+bowed strings, woodwind, brass and other, split from demucs' "other" by MVSep's family models. Wicked
+still has the earlier 9 (vocals and 8 Mega 53 instrument classes) until its MVSep split is done. Lizzie
+has 4: vocals, and drums, bass and guitar from demucs (4 stems; "guitar" is its "other" stem). Demucs'
+leftover "vocals" stem is never a pad. `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
 
 "Other sources (for development)" at the bottom loads a synthesized nine-stem demo or local stems held in
 memory (a folder with `stems.json`, or audio files that become pads in name order).
@@ -79,8 +82,10 @@ Keyboard shortcuts follow the pad order: `1`–`0`, then `Q`… (physical keys, 
 
 `tools/build_listening_set.py` builds the songs from the lab's `musical-textsetting` outputs into
 `stage-generator/audio/` (FLAC, about 350 MB for three songs). The accompaniment is split per song, either
-into 8 instrument classes (MVSep Mega 53, regrouped) or into htdemucs_ft's 4-stem split. Run it with
-`uv run`; its header documents how the stems are scaled onto the original mix and how the bases are formed.
+by htdemucs_6s with its "other" split again by MVSep's Brass, Woodwind and Bowed Strings models in a chain
+(`musical-textsetting/temp/vocal_sep/mvsep_families.py`, which uploads to mvsep.com with the account token in
+`~/.config/mvsep/token`), or by htdemucs_ft's 4 stems. Run it with `uv run`; `--build <song>` rebuilds only
+that song. Its header documents how the stems are scaled onto the original mix and how the bases are formed.
 
 ### Copyright
 
