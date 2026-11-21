@@ -923,78 +923,105 @@
       "level_db": -3.7
     },
     {
-      "id": "brass",
-      "label": "Brass",
-      "group": "accompaniment",
-      "color": "#facc15",
-      "level_db": -9.6
-    },
-    {
-      "id": "woodwind",
-      "label": "Woodwind",
-      "group": "accompaniment",
-      "color": "#a3e635",
-      "level_db": -13.9
-    },
-    {
-      "id": "bowed_strings",
-      "label": "Bowed strings",
-      "group": "accompaniment",
-      "color": "#2dd4bf",
-      "level_db": -21.0
-    },
-    {
-      "id": "harp",
-      "label": "Harp",
-      "group": "accompaniment",
-      "color": "#38bdf8",
-      "level_db": -21.9
-    },
-    {
-      "id": "keys",
-      "label": "Keys",
-      "group": "accompaniment",
-      "color": "#4ade80",
-      "level_db": -13.7
-    },
-    {
-      "id": "guitar",
-      "label": "Guitar",
-      "group": "accompaniment",
-      "color": "#fb923c",
-      "level_db": -24.3
-    },
-    {
-      "id": "drums_perc",
-      "label": "Drums & perc",
+      "id": "drums",
+      "label": "Drums",
       "group": "accompaniment",
       "color": "#f87171",
-      "level_db": -9.6
+      "level_db": -11.8
     },
     {
       "id": "bass",
       "label": "Bass",
       "group": "accompaniment",
       "color": "#818cf8",
-      "level_db": -15.5
+      "level_db": -14.9
+    },
+    {
+      "id": "piano",
+      "label": "Piano",
+      "group": "accompaniment",
+      "color": "#4ade80",
+      "level_db": -16.4
+    },
+    {
+      "id": "guitar",
+      "label": "Guitar",
+      "group": "accompaniment",
+      "color": "#fb923c",
+      "level_db": -16.7
+    },
+    {
+      "id": "bowed_strings",
+      "label": "Bowed strings",
+      "group": "accompaniment",
+      "color": "#2dd4bf",
+      "level_db": -14.7
+    },
+    {
+      "id": "woodwind",
+      "label": "Woodwind",
+      "group": "accompaniment",
+      "color": "#a3e635",
+      "level_db": -16.2
+    },
+    {
+      "id": "brass",
+      "label": "Brass",
+      "group": "accompaniment",
+      "color": "#facc15",
+      "level_db": -11.0
+    },
+    {
+      "id": "other",
+      "label": "Other",
+      "group": "accompaniment",
+      "color": "#94a3b8",
+      "level_db": -17.8
     }
   ],
   "provenance": {
-    "file_gain_db": -4.58,
+    "file_gain_db": -1.19,
     "melband_scale": {
       "vocals": 1.2726,
       "accompaniment": 1.3513,
       "mix_residual_db": -66.9
     },
-    "accompaniment_split": "mega53_9",
-    "instrument_written_gain_db": -1.48,
-    "instrument_fit_gain_db": 1.39,
+    "accompaniment_split": "demucs6_mvsep_demucs6",
     "vocals_tracks": "MelBand vocals, not split by character",
     "level_db_note": "song RMS relative to the song mix",
     "source": {
       "mix": "results/share_four_songs/<song>/audio.mp3 (48k -> 44.1k)",
       "vocals_accompaniment": "results/share_four_songs/<song>/stems/ (MelBand-RoFormer Kim)",
-      "instruments": "temp/vocal_sep/out/mega53_9/<song>/"
+      "instruments": {
+        "drums": [
+          "temp/vocal_sep/out/demucs6/{song}/drums.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/drums.wav"
+        ],
+        "bass": [
+          "temp/vocal_sep/out/demucs6/{song}/bass.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/bass.wav"
+        ],
+        "piano": [
+          "temp/vocal_sep/out/demucs6/{song}/piano.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/piano.wav"
+        ],
+        "guitar": [
+          "temp/vocal_sep/out/demucs6/{song}/guitar.wav",
+          "temp/vocal_sep/out/demucs6_rest/{song}/guitar.wav"
+        ],
+        "bowed_strings": [
+          "temp/vocal_sep/out/mvsep/{song}/bowed_strings.flac"
+        ],
+        "woodwind": [
+          "temp/vocal_sep/out/mvsep/{song}/woodwind.flac"
+        ],
+        "brass": [
+          "temp/vocal_sep/out/mvsep/{song}/brass.flac"
+        ],
+        "other": [
+          "temp/vocal_sep/out/demucs6_rest/{song}/other.wav"
+        ]
+      }
     }
   }
 }

@@ -41,12 +41,10 @@ Subtract starts from the sum of the pool's stems. Separated stems rarely add up 
 
 The song picker reads `audio/songs.json`. The published set is three numbers from cast recordings; see
 Copyright. Every song has one vocals stem (the separated voice, not split into singers); the accompaniment
-pads differ per song. Beetlejuice has 9: vocals; drums, bass, piano and guitar from demucs (6 stems); and
-bowed strings, woodwind, brass and other, split from demucs' "other" by MVSep's family models; what those
-leave is split by demucs (6 stems) once more, adding to drums, bass, piano and guitar, and its "other" is
-the other pad. Wicked
-still has the earlier 9 (vocals and 8 Mega 53 instrument classes) until its MVSep split is done. Lizzie
-has 4: vocals, and drums, bass and guitar from demucs (4 stems; "guitar" is its "other" stem). Demucs'
+pads differ per song. Beetlejuice and Wicked have 9: vocals; drums, bass, piano and guitar from demucs
+(6 stems); and bowed strings, woodwind, brass and other, split from demucs' "other" by MVSep's family
+models; what those leave is split by demucs (6 stems) once more, adding to drums, bass, piano and guitar,
+and its "other" is the other pad. Lizzie has 4: vocals, and drums, bass and guitar from demucs (4 stems; "guitar" is its "other" stem). Demucs'
 leftover "vocals" stem is never a pad. `?songs=<url>` points the picker at another list, `?stems=<url of stems.json>` opens one song.
 
 "Other sources (for development)" at the bottom loads a synthesized nine-stem demo or local stems held in
