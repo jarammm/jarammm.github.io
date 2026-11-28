@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>keychange: monophony listening check</title>
+  <link rel="stylesheet" type="text/css" href="/css/main.css">
+  <style>
+    :root { --fg: #222; --muted: #6b7280; --bd: #e5e7eb; --pick: #eef2ff; }
+    * { box-sizing: border-box; }
+    .container { max-width: 980px; }
+    p, li { line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: .6rem .7rem; border-top: 1px solid var(--bd); vertical-align: middle; text-align: left; }
+    th { white-space: nowrap; color: var(--muted); font-weight: 600; }
+    audio { width: 260px; max-width: 100%; height: 32px; }
+    .choice label { display: inline-block; margin-right: .6rem; cursor: pointer; white-space: nowrap; }
+    tr.done { background: var(--pick); }
+    .src { font-size: .82rem; color: var(--muted); }
+    .src a { color: var(--muted); }
+    input.note { width: 100%; min-width: 120px; padding: .25rem .4rem; border: 1px solid var(--bd); border-radius: 4px; }
+    .bar { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+    button { padding: .45rem .9rem; border: 1px solid #c7cbd1; background: #fff; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #f5f5f5; }
+    #progress { color: var(--muted); }
+    @media (max-width: 640px) {
+      table, thead, tbody, tr, td { display: block; }
+      thead { display: none; }
+      tr { border-top: 1px solid var(--bd); padding: .5rem 0; }
+      td { border: none; padding: .3rem 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Monophony listening check</h1>
+  <p>Part of <b>keychange</b>, a study of key-scale estimation and degree-wise key-scale conversion for single-track loops in a DAW.
+  The conversion path assumes a monophonic track: one pitch at a time. FSL10K loops are filtered with an automatic check
+  (share of voiced frames and pitch-tracker confidence) whose thresholds have not been validated. These 20 loops are a random,
+  shuffled mix of loops the check accepted and rejected; which is which is not shown, so the judgement stays blind.</p>
+
+  <h3>How to judge</h3>
+  <ul>
+    <li><b>mono</b>: one pitched line at a time. Legato overlaps, reverb tails, slides and vibrato are fine.</li>
+    <li><b>poly</b>: two or more pitches sound together for a noticeable part of the loop: chords, octave doubling,
+        stacked or layered voices, harmonised lines, a pad under the line.</li>
+    <li><b>unclear</b>: cannot tell, or the loop is mostly unpitched (noise, percussion).</li>
+  </ul>
+  <p>Choices are kept in this browser. When finished, press <b>Download CSV</b> and send the file back.</p>
+
+  <div class="bar">
+    <button id="download">Download CSV</button>
+    <button id="reset">Clear choices</button>
+    <span id="progress"></span>
+  </div>
+
+  <table>
+    <thead><tr><th>#</th><th>Loop</th><th>Your judgement</th><th>Note (optional)</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <h3>Sources</h3>
+  <p class="src">Audio: Freesound Loop Dataset (FSL10K), Ramires et al., ISMIR 2020, converted to mono MP3 at 128 kbps.
+  Each loop's author and licence are listed under it; the files are redistributed under those licences for non-commercial research.</p>
+</div>
+
+<script>
+const ITEMS = [{"n": 1, "file": "assets/audio/loop01.mp3", "id": "429866", "title": "DIZI FLUTE LOOP 41 120 BPM.wav", "user": "CarlosCarty", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/429866/"}, {"n": 2, "file": "assets/audio/loop02.mp3", "id": "45741", "title": "east_river_twisted_88bpm.wav", "user": "torn.rugged.audio.35", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/45741/"}, {"n": 3, "file": "assets/audio/loop03.mp3", "id": "337765", "title": "70bpm  SlideBassInBLocrian - 06.wav", "user": "turtlewithpants", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/337765/"}, {"n": 4, "file": "assets/audio/loop04.mp3", "id": "18541", "title": "ambienza-bass_line_04-120-Cmin.wav", "user": "sonicfire", "license": "CC Sampling+ 1.0", "license_url": "http://creativecommons.org/licenses/sampling+/1.0/", "url": "https://freesound.org/s/18541/"}, {"n": 5, "file": "assets/audio/loop05.mp3", "id": "465751", "title": "ACID 8", "user": "XHALE303", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/465751/"}, {"n": 6, "file": "assets/audio/loop06.mp3", "id": "17698", "title": "gtr 3.wav", "user": "Rupert1073", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/17698/"}, {"n": 7, "file": "assets/audio/loop07.mp3", "id": "413252", "title": "C#minor_Funk_BassGroove_110bpm", "user": "GRD-music-", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/413252/"}, {"n": 8, "file": "assets/audio/loop08.mp3", "id": "119565", "title": "B5 Dubstep Loops 5c.wav", "user": "Ongitak", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/119565/"}, {"n": 9, "file": "assets/audio/loop09.mp3", "id": "463717", "title": "Quena Bamboo Flute Latin Loop 04 100bpm A", "user": "CarlosCarty", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/463717/"}, {"n": 10, "file": "assets/audio/loop10.mp3", "id": "77714", "title": "solo trumpet -09in F - 90bpm.wav", "user": "sorohanro", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/77714/"}, {"n": 11, "file": "assets/audio/loop11.mp3", "id": "179547", "title": "creep Bass 2 140bpm.wav", "user": "Clinthammer", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/179547/"}, {"n": 12, "file": "assets/audio/loop12.mp3", "id": "137053", "title": "120 laundry 2.wav", "user": "fran_ky", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/137053/"}, {"n": 13, "file": "assets/audio/loop13.mp3", "id": "339982", "title": "Jazz01-140bpm.wav", "user": "FullMetalJedi", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/339982/"}, {"n": 14, "file": "assets/audio/loop14.mp3", "id": "239076", "title": "Bass 110 BPM (2 bar)", "user": "Bronxio", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/239076/"}, {"n": 15, "file": "assets/audio/loop15.mp3", "id": "25769", "title": "melohaus kalimba 120bpm.aif", "user": "jim68000", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/25769/"}, {"n": 16, "file": "assets/audio/loop16.mp3", "id": "246090", "title": "23_ca_dnb layers.wav", "user": "lerwickdj", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/246090/"}, {"n": 17, "file": "assets/audio/loop17.mp3", "id": "491281", "title": "Emotional Piano 004 (D#m-80)", "user": "Xinematix", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/491281/"}, {"n": 18, "file": "assets/audio/loop18.mp3", "id": "275424", "title": "alteredstates_funkgoa_5_140bpm.wav", "user": "hipihopi", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/275424/"}, {"n": 19, "file": "assets/audio/loop19.mp3", "id": "275178", "title": "VoicePad_140BPM.wav", "user": "Elmo_cookies", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/275178/"}, {"n": 20, "file": "assets/audio/loop20.mp3", "id": "490648", "title": "666Redd Guitar Loop - Em 130BPM.wav", "user": "na9o_Rose", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/490648/"}];
+const KEY = "keychange-monophony-v1";
+const state = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+const tbody = document.getElementById("rows");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+function render() {
+  tbody.innerHTML = "";
+  for (const it of ITEMS) {
+    const s = state[it.n] || {};
+    const tr = document.createElement("tr");
+    if (s.label) tr.className = "done";
+    tr.innerHTML = `
+      <td>${it.n}</td>
+      <td><audio controls preload="none" src="${it.file}"></audio>
+          <div class="src"><a href="${it.url}" target="_blank" rel="noopener">${esc(it.title)}</a>
+          by ${esc(it.user)} · <a href="${it.license_url}" target="_blank" rel="noopener">${it.license}</a></div></td>
+      <td class="choice">${["mono", "poly", "unclear"].map(v =>
+          `<label><input type="radio" name="c${it.n}" value="${v}" ${s.label === v ? "checked" : ""}> ${v}</label>`).join("")}</td>
+      <td><input class="note" type="text" value="${esc(s.note || "")}" placeholder="e.g. octave doubling at bar 3"></td>`;
+    tr.querySelectorAll("input[type=radio]").forEach(r => r.addEventListener("change", () => {
+      state[it.n] = {...(state[it.n] || {}), label: r.value}; save(); tr.className = "done"; progress();
+    }));
+    tr.querySelector("input.note").addEventListener("input", e => {
+      state[it.n] = {...(state[it.n] || {}), note: e.target.value}; save();
+    });
+    tbody.appendChild(tr);
+  }
+  progress();
+}
+function progress() {
+  const done = ITEMS.filter(it => (state[it.n] || {}).label).length;
+  document.getElementById("progress").textContent = `${done} / ${ITEMS.length} judged`;
+}
+document.getElementById("download").addEventListener("click", () => {
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = ["n,freesound_id,label,note"].concat(ITEMS.map(it => {
+    const s = state[it.n] || {};
+    return [it.n, it.id, s.label || "", q(s.note)].join(",");
+  }));
+  const blob = new Blob([lines.join("\n") + "\n"], {type: "text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "keychange_monophony_check.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+});
+document.getElementById("reset").addEventListener("click", () => {
+  if (confirm("Clear all choices on this page?")) { for (const k in state) delete state[k]; save(); render(); }
+});
+render();
+</script>
+</body>
+</html>
