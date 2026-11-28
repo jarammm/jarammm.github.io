@@ -18,7 +18,8 @@
     button { padding: .35rem .7rem; border: 1px solid #c7cbd1; background: #fff; border-radius: 6px; cursor: pointer; font: inherit; }
     button:hover { background: #f5f5f5; }
     button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .pitches { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .3rem; margin: .5rem 0; max-width: 640px; }
+    .pitches { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: .3rem; margin: .5rem 0; max-width: 690px; }
+    .pitches button.q.on { background: #6b7280; border-color: #6b7280; }
     .pitches button { padding: .45rem 0; font-weight: 600; font-size: .85rem; }
     .row { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: .4rem 0; }
     .scale label, .row label { white-space: nowrap; cursor: pointer; }
@@ -27,12 +28,12 @@
     .bar { position: sticky; top: 0; background: #fff; z-index: 2; display: flex; gap: .8rem; align-items: center; flex-wrap: wrap;
            padding: .6rem 0; border-bottom: 1px solid var(--bd); }
     .src { font-size: .82rem; color: var(--muted); }
-    @media (max-width: 640px) { .pitches { grid-template-columns: repeat(6, minmax(0, 1fr)); } .cand { grid-template-columns: 1.6rem 1fr; } }
+    @media (max-width: 640px) { .pitches { grid-template-columns: repeat(7, minmax(0, 1fr)); } .cand { grid-template-columns: 1.6rem 1fr; } }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>Listening test: home pitch and key change</h1>
+  <h1>Listening test: tonic and key change</h1>
   <p>Part of <b>keychange</b>, a study of changing the key of a single-instrument track. Please use headphones. Answering is optional;
   answers stay in this browser and can be downloaded as CSV at any time. If you answer, please do part 1 before part 2.<br>
   <span class="muted">단일 악기 트랙의 키 변환 연구를 위한 청취 페이지입니다. 헤드폰을 써 주세요. 답은 선택 사항이며 이 브라우저에 저장되고, 언제든 CSV 로 내려받을 수 있습니다. 답하신다면 1부를 먼저 해 주세요.</span></p>
@@ -45,10 +46,11 @@
     <span id="progress" class="muted"></span>
   </div>
 
-  <h2>Part 1 — Which pitch sounds like home?</h2>
-  <p>Play an excerpt (it loops) and try the 12 buttons: each adds a low held tone. Pick the one under which the excerpt sounds most at
-  rest, as if it could end there; or tick <i>can't tell</i> if two or more feel equally right, or none does.<br>
-  <span class="muted">구간을 재생하고(반복됩니다) 12개 버튼을 눌러 보세요. 누른 음이 낮게 계속 울립니다. 그 음 위에서 구간이 가장 "집에 돌아온 듯" 쉬어지는 음을 고르세요. 둘 이상이 똑같거나 하나도 없으면 can't tell.</span></p>
+  <h2>Part 1 — Which pitch is the tonic?</h2>
+  <p>Play an excerpt (it loops) and try the 12 pitch buttons: each adds a low held tone. The tonic is the pitch under which the excerpt
+  sounds most at rest, as if it could end there; the last pressed pitch is your answer. Press <b>?</b> if you cannot tell (two or more
+  feel equally right, or none does).<br>
+  <span class="muted">구간을 재생하고(반복됩니다) 12개 음 버튼을 눌러 보세요. 누른 음이 낮게 계속 울립니다. 으뜸음은 그 음 위에서 구간이 가장 쉬어지는(거기서 끝날 수 있을 것 같은) 음입니다. 마지막으로 누른 음이 답이 됩니다. 정하기 어려우면(둘 이상이 똑같거나 하나도 없으면) <b>?</b> 를 누르세요.</span></p>
   <div id="part1"></div>
 
   <h2>Part 2 — Which take is right in the target key?</h2>
@@ -118,19 +120,19 @@ function renderPart1() {
     const d = document.createElement("div"); d.className = "item" + (a.pick || a.unsure ? " done" : "");
     d.innerHTML = `<div class="head"><b>1-${n + 1}</b></div>
       <audio controls loop preload="none" src="${st.file}"></audio>
-      <div class="pitches">${NAMES.map((nm, pc) => `<button data-pc="${pc}" class="${a.pick_pc === pc ? "pick" : ""}">${nm}</button>`).join("")}</div>
-      <div class="row"><span>Home: <b class="home">${a.pick || "–"}</b></span>
-        <label><input type="checkbox" class="unsure" ${a.unsure ? "checked" : ""}> can't tell</label></div>
+      <div class="pitches">${NAMES.map((nm, pc) => `<button data-pc="${pc}">${nm}</button>`).join("")}<button class="q${a.unsure ? " on" : ""}" title="can't tell">?</button></div>
+      <div class="row"><span>Tonic: <b class="home">${a.unsure ? "?" : (a.pick || "–")}</b></span></div>
       <div class="row scale">Confidence: ${radios(`c_${st.id}`, 5, a.conf)}</div>`;
     const upd = patch => { S.ans1[st.id] = {...(S.ans1[st.id] || {}), ...patch, t: new Date().toISOString()}; save();
-      const x = S.ans1[st.id]; d.className = "item" + (x.pick || x.unsure ? " done" : ""); d.querySelector(".home").textContent = x.pick || "–"; progress(); };
-    d.querySelectorAll(".pitches button").forEach(b => b.onclick = () => {
+      const x = S.ans1[st.id]; d.className = "item" + (x.pick || x.unsure ? " done" : "");
+      d.querySelector(".home").textContent = x.unsure ? "?" : (x.pick || "–"); d.querySelector(".q").classList.toggle("on", !!x.unsure); progress(); };
+    d.querySelectorAll(".pitches button[data-pc]").forEach(b => b.onclick = () => {
       const pc = Number(b.dataset.pc), x = S.ans1[st.id] || {};
       if (droneBtn === b) { droneOff(); return; }
       droneOn(pc, b);
-      upd({pick: NAMES[pc], pick_pc: pc, tries: ((x.tries ? x.tries + " " : "") + NAMES[pc])});
+      upd({pick: NAMES[pc], pick_pc: pc, unsure: false, tries: ((x.tries ? x.tries + " " : "") + NAMES[pc])});
     });
-    d.querySelector(".unsure").onchange = e => upd({unsure: e.target.checked});
+    d.querySelector(".q").onclick = () => { droneOff(); upd({pick: "", pick_pc: "", unsure: true}); };   // "?" = cannot tell
     d.querySelectorAll(`input[name=c_${st.id}]`).forEach(r => r.onchange = () => upd({conf: Number(r.value)}));
     box.appendChild(d);
   });
