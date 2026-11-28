@@ -3,118 +3,227 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>keychange: monophony listening check</title>
+  <title>keychange listening test</title>
   <link rel="stylesheet" type="text/css" href="/css/main.css">
   <style>
-    :root { --fg: #222; --muted: #6b7280; --bd: #e5e7eb; --pick: #eef2ff; }
+    :root { --fg: #222; --muted: #6b7280; --bd: #e5e7eb; --pick: #eef2ff; --accent: #4f46e5; }
     * { box-sizing: border-box; }
-    .container { max-width: 980px; }
+    .container { max-width: 860px; padding: 0 16px; }
     p, li { line-height: 1.55; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    th, td { padding: .6rem .7rem; border-top: 1px solid var(--bd); vertical-align: middle; text-align: left; }
-    th { white-space: nowrap; color: var(--muted); font-weight: 600; }
-    audio { width: 260px; max-width: 100%; height: 32px; }
-    .choice label { display: inline-block; margin-right: .6rem; cursor: pointer; white-space: nowrap; }
-    tr.done { background: var(--pick); }
-    .src { font-size: .82rem; color: var(--muted); }
-    .src a { color: var(--muted); }
-    input.note { width: 100%; min-width: 120px; padding: .25rem .4rem; border: 1px solid var(--bd); border-radius: 4px; }
-    .bar { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
-    button { padding: .45rem .9rem; border: 1px solid #c7cbd1; background: #fff; border-radius: 6px; cursor: pointer; }
+    .card { border: 1px solid var(--bd); border-radius: 10px; padding: 1rem 1.1rem; margin: 1rem 0; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    button { padding: .45rem .9rem; border: 1px solid #c7cbd1; background: #fff; border-radius: 6px; cursor: pointer; font: inherit; }
     button:hover { background: #f5f5f5; }
-    #progress { color: var(--muted); }
-    @media (max-width: 640px) {
-      table, thead, tbody, tr, td { display: block; }
-      thead { display: none; }
-      tr { border-top: 1px solid var(--bd); padding: .5rem 0; }
-      td { border: none; padding: .3rem 0; }
-    }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.primary:disabled { opacity: .45; cursor: not-allowed; }
+    .pitches { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .4rem; margin: .8rem 0; }
+    .pitches button { padding: .6rem 0; font-weight: 600; }
+    .pitches button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .row { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: .6rem 0; }
+    .scale label { margin-right: .7rem; white-space: nowrap; cursor: pointer; }
+    audio { width: 100%; max-width: 420px; height: 34px; }
+    .cand { display: grid; grid-template-columns: 2.2rem 1fr auto; gap: .6rem; align-items: center; padding: .35rem 0; border-top: 1px solid var(--bd); }
+    .cand.picked { background: var(--pick); }
+    .bar { height: 6px; background: var(--bd); border-radius: 3px; overflow: hidden; margin: .4rem 0 1rem; }
+    .bar > div { height: 100%; background: var(--accent); width: 0; }
+    .hidden { display: none; }
+    input[type=text] { padding: .35rem .5rem; border: 1px solid var(--bd); border-radius: 6px; font: inherit; }
+    .src { font-size: .82rem; color: var(--muted); }
+    @media (max-width: 560px) { .pitches { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>Monophony listening check</h1>
-  <p>Part of <b>keychange</b>, a study of key-scale estimation and degree-wise key-scale conversion for single-track loops in a DAW.
-  The conversion path assumes a monophonic track: one pitch at a time. FSL10K loops are filtered with an automatic check
-  (share of voiced frames and pitch-tracker confidence) whose thresholds have not been validated. These 20 loops are a random,
-  shuffled mix of loops the check accepted and rejected; which is which is not shown, so the judgement stays blind.</p>
+  <h1>Listening test: home pitch and key change</h1>
+  <p>Part of <b>keychange</b>, a study of changing the key of a single-instrument track. Two parts, about 45 minutes in all;
+  you can stop and come back (answers stay in this browser). Please use headphones in a quiet place.<br>
+  <span class="muted">단일 악기 트랙의 키 변환 연구를 위한 청취 실험입니다. 두 부분, 모두 45분 정도입니다. 중간에 멈췄다가 이어서 할 수 있습니다(답은 이 브라우저에 저장됩니다). 헤드폰을 써 주세요.</span></p>
 
-  <h3>How to judge</h3>
-  <ul>
-    <li><b>mono</b>: one pitched line at a time. Legato overlaps, reverb tails, slides and vibrato are fine.</li>
-    <li><b>poly</b>: two or more pitches sound together for a noticeable part of the loop: chords, octave doubling,
-        stacked or layered voices, harmonised lines, a pad under the line.</li>
-    <li><b>unclear</b>: cannot tell, or the loop is mostly unpitched (noise, percussion).</li>
-  </ul>
-  <p>Choices are kept in this browser. When finished, press <b>Download CSV</b> and send the file back.</p>
-
-  <div class="bar">
-    <button id="download">Download CSV</button>
-    <button id="reset">Clear choices</button>
-    <span id="progress"></span>
+  <div id="start" class="card">
+    <p><b>Participant code</b> (given to you, e.g. P03) · <span class="muted">참가자 번호</span></p>
+    <div class="row"><input id="code" type="text" placeholder="P03"> <button id="go" class="primary">Start / resume</button></div>
+    <p class="muted">No personal data is collected. The code only fixes the order of the excerpts. · 개인정보는 받지 않습니다.</p>
   </div>
 
-  <table>
-    <thead><tr><th>#</th><th>Loop</th><th>Your judgement</th><th>Note (optional)</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
+  <div id="intro1" class="card hidden">
+    <h3>Part 1 — Which pitch sounds like home?</h3>
+    <p>Each excerpt loops. The 12 buttons add a low held tone (drone) under it; try as many as you like. Pick the one under which the
+    excerpt sounds most at rest, as if it could end there. If two or more feel equally right, or none does, tick <i>can't tell</i>.<br>
+    <span class="muted">구간이 반복 재생됩니다. 12개 버튼을 누르면 그 음이 낮게 계속 울립니다. 여러 개를 눌러 보고, 그 음 위에서 구간이 가장 "집에 돌아온 듯" 쉬어지는 음을 고르세요. 둘 이상이 똑같거나 하나도 없으면 can't tell 을 고르세요.</span></p>
+    <button id="begin1" class="primary">Begin part 1</button>
+  </div>
+
+  <div id="trial1" class="card hidden">
+    <div class="row"><b id="t1n"></b><span class="muted" id="t1p"></span></div>
+    <div class="bar"><div id="b1"></div></div>
+    <audio id="a1" controls loop preload="auto"></audio>
+    <div class="pitches" id="pitches"></div>
+    <div class="row"><button id="droneoff">Drone off</button> <span class="muted">Drone volume</span>
+      <input id="vol" type="range" min="0" max="100" value="45"></div>
+    <div class="row"><label><input type="checkbox" id="unsure"> can't tell / more than one · <span class="muted">모르겠음</span></label></div>
+    <div class="row scale" id="conf1"><span>Confidence · 확신:</span></div>
+    <div class="row"><button id="next1" class="primary" disabled>Next</button></div>
+  </div>
+
+  <div id="intro2" class="card hidden">
+    <h3>Part 2 — Which take is right in the target key?</h3>
+    <p>You hear an original take and five versions moved to a target key (e.g. <i>E minor</i>). Pick the version that is in the target key
+    and keeps the character of the original best. If none fits, pick <i>none fits</i>. Then rate how natural your pick sounds.<br>
+    <span class="muted">원본과, 목표 키로 바꾼 다섯 가지 버전을 듣습니다. 목표 키에 맞으면서 원본의 성격을 가장 잘 지킨 버전을 고르세요. 맞는 것이 없으면 none fits. 그다음 고른 버전이 얼마나 자연스러운지 매겨 주세요.</span></p>
+    <button id="begin2" class="primary">Begin part 2</button>
+  </div>
+
+  <div id="trial2" class="card hidden">
+    <div class="row"><b id="t2n"></b><span class="muted" id="t2p"></span></div>
+    <div class="bar"><div id="b2"></div></div>
+    <p><b>Original</b></p><audio id="orig" controls preload="auto"></audio>
+    <p><b>Target key: <span id="target"></span></b></p>
+    <div id="cands"></div>
+    <div class="cand"><span></span><label><input type="radio" name="pick" value="none"> none fits · <span class="muted">맞는 것 없음</span></label><span></span></div>
+    <div class="row scale" id="nat"><span>Natural · 자연스러움:</span></div>
+    <div class="row"><button id="next2" class="primary" disabled>Next</button></div>
+  </div>
+
+  <div id="done" class="card hidden">
+    <h3>Thank you</h3>
+    <p>Press <b>Download CSV</b> and send the file back. · CSV 를 내려받아 보내 주세요.</p>
+    <div class="row"><button id="download" class="primary">Download CSV</button></div>
+  </div>
+
+  <div class="row"><button id="dl2">Download CSV so far</button> <button id="reset">Clear my answers</button></div>
 
   <h3>Sources</h3>
-  <p class="src">Audio: Freesound Loop Dataset (FSL10K), Ramires et al., ISMIR 2020, converted to mono MP3 at 128 kbps.
-  Each loop's author and licence are listed under it; the files are redistributed under those licences for non-commercial research.</p>
+  <p class="src">Part 1 and 2 excerpts are cut from the Chord-Scale Dataset by emirdemirel
+  (<a href="https://freesound.org/people/emirdemirel/packs/24075/" target="_blank" rel="noopener">Freesound pack 24075</a>,
+  <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>); they are transposed or key-changed
+  by WORLD resynthesis. Loops from the Freesound Loop Dataset (FSL10K, Ramires et al., ISMIR 2020): <a href="https://freesound.org/s/165834/" target="_blank" rel="noopener">165834</a> by DiamondSoul (CC0); <a href="https://freesound.org/s/210835/" target="_blank" rel="noopener">210835</a> by arseniiv (CC0); <a href="https://freesound.org/s/269550/" target="_blank" rel="noopener">269550</a> by shitefromaheight (CC BY); <a href="https://freesound.org/s/138163/" target="_blank" rel="noopener">138163</a> by SouthernUK (CC0); <a href="https://freesound.org/s/454703/" target="_blank" rel="noopener">454703</a> by CarlosCarty (CC BY); <a href="https://freesound.org/s/479386/" target="_blank" rel="noopener">479386</a> by itsmochajones (CC BY); <a href="https://freesound.org/s/412844/" target="_blank" rel="noopener">412844</a> by GRD-music- (CC0); <a href="https://freesound.org/s/177813/" target="_blank" rel="noopener">177813</a> by Louderest (CC BY); <a href="https://freesound.org/s/413256/" target="_blank" rel="noopener">413256</a> by GRD-music- (CC0); <a href="https://freesound.org/s/412614/" target="_blank" rel="noopener">412614</a> by GRD-music- (CC BY); <a href="https://freesound.org/s/203977/" target="_blank" rel="noopener">203977</a> by Mattc90 (CC0); <a href="https://freesound.org/s/183900/" target="_blank" rel="noopener">183900</a> by bigfriendlyjiant (CC BY).
+  Check melodies are rendered with FluidSynth and the FluidR3 GM SoundFont.</p>
 </div>
 
 <script>
-const ITEMS = [{"n": 1, "file": "assets/audio/loop01.mp3", "id": "429866", "title": "DIZI FLUTE LOOP 41 120 BPM.wav", "user": "CarlosCarty", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/429866/"}, {"n": 2, "file": "assets/audio/loop02.mp3", "id": "45741", "title": "east_river_twisted_88bpm.wav", "user": "torn.rugged.audio.35", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/45741/"}, {"n": 3, "file": "assets/audio/loop03.mp3", "id": "337765", "title": "70bpm  SlideBassInBLocrian - 06.wav", "user": "turtlewithpants", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/337765/"}, {"n": 4, "file": "assets/audio/loop04.mp3", "id": "18541", "title": "ambienza-bass_line_04-120-Cmin.wav", "user": "sonicfire", "license": "CC Sampling+ 1.0", "license_url": "http://creativecommons.org/licenses/sampling+/1.0/", "url": "https://freesound.org/s/18541/"}, {"n": 5, "file": "assets/audio/loop05.mp3", "id": "465751", "title": "ACID 8", "user": "XHALE303", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/465751/"}, {"n": 6, "file": "assets/audio/loop06.mp3", "id": "17698", "title": "gtr 3.wav", "user": "Rupert1073", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/17698/"}, {"n": 7, "file": "assets/audio/loop07.mp3", "id": "413252", "title": "C#minor_Funk_BassGroove_110bpm", "user": "GRD-music-", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/413252/"}, {"n": 8, "file": "assets/audio/loop08.mp3", "id": "119565", "title": "B5 Dubstep Loops 5c.wav", "user": "Ongitak", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/119565/"}, {"n": 9, "file": "assets/audio/loop09.mp3", "id": "463717", "title": "Quena Bamboo Flute Latin Loop 04 100bpm A", "user": "CarlosCarty", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/463717/"}, {"n": 10, "file": "assets/audio/loop10.mp3", "id": "77714", "title": "solo trumpet -09in F - 90bpm.wav", "user": "sorohanro", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/77714/"}, {"n": 11, "file": "assets/audio/loop11.mp3", "id": "179547", "title": "creep Bass 2 140bpm.wav", "user": "Clinthammer", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/179547/"}, {"n": 12, "file": "assets/audio/loop12.mp3", "id": "137053", "title": "120 laundry 2.wav", "user": "fran_ky", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/137053/"}, {"n": 13, "file": "assets/audio/loop13.mp3", "id": "339982", "title": "Jazz01-140bpm.wav", "user": "FullMetalJedi", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/339982/"}, {"n": 14, "file": "assets/audio/loop14.mp3", "id": "239076", "title": "Bass 110 BPM (2 bar)", "user": "Bronxio", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/239076/"}, {"n": 15, "file": "assets/audio/loop15.mp3", "id": "25769", "title": "melohaus kalimba 120bpm.aif", "user": "jim68000", "license": "CC BY 3.0", "license_url": "http://creativecommons.org/licenses/by/3.0/", "url": "https://freesound.org/s/25769/"}, {"n": 16, "file": "assets/audio/loop16.mp3", "id": "246090", "title": "23_ca_dnb layers.wav", "user": "lerwickdj", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/246090/"}, {"n": 17, "file": "assets/audio/loop17.mp3", "id": "491281", "title": "Emotional Piano 004 (D#m-80)", "user": "Xinematix", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/491281/"}, {"n": 18, "file": "assets/audio/loop18.mp3", "id": "275424", "title": "alteredstates_funkgoa_5_140bpm.wav", "user": "hipihopi", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/275424/"}, {"n": 19, "file": "assets/audio/loop19.mp3", "id": "275178", "title": "VoicePad_140BPM.wav", "user": "Elmo_cookies", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/275178/"}, {"n": 20, "file": "assets/audio/loop20.mp3", "id": "490648", "title": "666Redd Guitar Loop - Em 130BPM.wav", "user": "na9o_Rose", "license": "CC0 1.0", "license_url": "http://creativecommons.org/publicdomain/zero/1.0/", "url": "https://freesound.org/s/490648/"}];
-const KEY = "keychange-monophony-v1";
-const state = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
-function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
-const tbody = document.getElementById("rows");
-const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const STIM = [{"id":"e1_000","exp":1,"file":"assets/audio/e1_000.mp3"},{"id":"e1_001","exp":1,"file":"assets/audio/e1_001.mp3"},{"id":"e1_002","exp":1,"file":"assets/audio/e1_002.mp3"},{"id":"e1_003","exp":1,"file":"assets/audio/e1_003.mp3"},{"id":"e1_004","exp":1,"file":"assets/audio/e1_004.mp3"},{"id":"e1_005","exp":1,"file":"assets/audio/e1_005.mp3"},{"id":"e1_006","exp":1,"file":"assets/audio/e1_006.mp3"},{"id":"e1_007","exp":1,"file":"assets/audio/e1_007.mp3"},{"id":"e1_008","exp":1,"file":"assets/audio/e1_008.mp3"},{"id":"e1_009","exp":1,"file":"assets/audio/e1_009.mp3"},{"id":"e1_010","exp":1,"file":"assets/audio/e1_010.mp3"},{"id":"e1_011","exp":1,"file":"assets/audio/e1_011.mp3"},{"id":"e1_012","exp":1,"file":"assets/audio/e1_012.mp3"},{"id":"e1_013","exp":1,"file":"assets/audio/e1_013.mp3"},{"id":"e1_014","exp":1,"file":"assets/audio/e1_014.mp3"},{"id":"e1_015","exp":1,"file":"assets/audio/e1_015.mp3"},{"id":"e1_016","exp":1,"file":"assets/audio/e1_016.mp3"},{"id":"e1_017","exp":1,"file":"assets/audio/e1_017.mp3"},{"id":"e1_018","exp":1,"file":"assets/audio/e1_018.mp3"},{"id":"e1_019","exp":1,"file":"assets/audio/e1_019.mp3"},{"id":"e1_020","exp":1,"file":"assets/audio/e1_020.mp3"},{"id":"e1_021","exp":1,"file":"assets/audio/e1_021.mp3"},{"id":"e1_022","exp":1,"file":"assets/audio/e1_022.mp3"},{"id":"e1_023","exp":1,"file":"assets/audio/e1_023.mp3"},{"id":"e1_024","exp":1,"file":"assets/audio/e1_024.mp3"},{"id":"e1_025","exp":1,"file":"assets/audio/e1_025.mp3"},{"id":"e1_026","exp":1,"file":"assets/audio/e1_026.mp3"},{"id":"e1_027","exp":1,"file":"assets/audio/e1_027.mp3"},{"id":"e1_028","exp":1,"file":"assets/audio/e1_028.mp3"},{"id":"e1_029","exp":1,"file":"assets/audio/e1_029.mp3"},{"id":"e1_030","exp":1,"file":"assets/audio/e1_030.mp3"},{"id":"e1_031","exp":1,"file":"assets/audio/e1_031.mp3"},{"id":"e1_032","exp":1,"file":"assets/audio/e1_032.mp3"},{"id":"e1_033","exp":1,"file":"assets/audio/e1_033.mp3"},{"id":"e1_034","exp":1,"file":"assets/audio/e1_034.mp3"},{"id":"e1_035","exp":1,"file":"assets/audio/e1_035.mp3"},{"id":"e1_036","exp":1,"file":"assets/audio/e1_036.mp3"},{"id":"e1_037","exp":1,"file":"assets/audio/e1_037.mp3"},{"id":"e1_038","exp":1,"file":"assets/audio/e1_038.mp3"},{"id":"e1_039","exp":1,"file":"assets/audio/e1_039.mp3"},{"id":"e1_040","exp":1,"file":"assets/audio/e1_040.mp3"},{"id":"e1_041","exp":1,"file":"assets/audio/e1_041.mp3"},{"id":"e1_042","exp":1,"file":"assets/audio/e1_042.mp3"},{"id":"e1_043","exp":1,"file":"assets/audio/e1_043.mp3"},{"id":"e1_044","exp":1,"file":"assets/audio/e1_044.mp3"},{"id":"e1_045","exp":1,"file":"assets/audio/e1_045.mp3"},{"id":"e1_046","exp":1,"file":"assets/audio/e1_046.mp3"},{"id":"e1_047","exp":1,"file":"assets/audio/e1_047.mp3"},{"id":"e1_048","exp":1,"file":"assets/audio/e1_048.mp3"},{"id":"e1_049","exp":1,"file":"assets/audio/e1_049.mp3"},{"id":"e1_050","exp":1,"file":"assets/audio/e1_050.mp3"},{"id":"e1_051","exp":1,"file":"assets/audio/e1_051.mp3"},{"id":"e1_052","exp":1,"file":"assets/audio/e1_052.mp3"},{"id":"e1_053","exp":1,"file":"assets/audio/e1_053.mp3"},{"id":"e1_054","exp":1,"file":"assets/audio/e1_054.mp3"},{"id":"e1_055","exp":1,"file":"assets/audio/e1_055.mp3"},{"id":"e2_00","exp":2,"original":"assets/audio/e2_00_orig.mp3","target":"F major","candidates":["assets/audio/e2_00_c0.mp3","assets/audio/e2_00_c1.mp3","assets/audio/e2_00_c2.mp3","assets/audio/e2_00_c3.mp3","assets/audio/e2_00_c4.mp3"]},{"id":"e2_01","exp":2,"original":"assets/audio/e2_01_orig.mp3","target":"F# minor","candidates":["assets/audio/e2_01_c0.mp3","assets/audio/e2_01_c1.mp3","assets/audio/e2_01_c2.mp3","assets/audio/e2_01_c3.mp3","assets/audio/e2_01_c4.mp3"]},{"id":"e2_02","exp":2,"original":"assets/audio/e2_02_orig.mp3","target":"A major","candidates":["assets/audio/e2_02_c0.mp3","assets/audio/e2_02_c1.mp3","assets/audio/e2_02_c2.mp3","assets/audio/e2_02_c3.mp3","assets/audio/e2_02_c4.mp3"]},{"id":"e2_03","exp":2,"original":"assets/audio/e2_03_orig.mp3","target":"E major","candidates":["assets/audio/e2_03_c0.mp3","assets/audio/e2_03_c1.mp3","assets/audio/e2_03_c2.mp3","assets/audio/e2_03_c3.mp3","assets/audio/e2_03_c4.mp3"]},{"id":"e2_04","exp":2,"original":"assets/audio/e2_04_orig.mp3","target":"B minor","candidates":["assets/audio/e2_04_c0.mp3","assets/audio/e2_04_c1.mp3","assets/audio/e2_04_c2.mp3","assets/audio/e2_04_c3.mp3","assets/audio/e2_04_c4.mp3"]},{"id":"e2_05","exp":2,"original":"assets/audio/e2_05_orig.mp3","target":"F# major","candidates":["assets/audio/e2_05_c0.mp3","assets/audio/e2_05_c1.mp3","assets/audio/e2_05_c2.mp3","assets/audio/e2_05_c3.mp3","assets/audio/e2_05_c4.mp3"]},{"id":"e2_06","exp":2,"original":"assets/audio/e2_06_orig.mp3","target":"Ab major","candidates":["assets/audio/e2_06_c0.mp3","assets/audio/e2_06_c1.mp3","assets/audio/e2_06_c2.mp3","assets/audio/e2_06_c3.mp3","assets/audio/e2_06_c4.mp3"]},{"id":"e2_07","exp":2,"original":"assets/audio/e2_07_orig.mp3","target":"B major","candidates":["assets/audio/e2_07_c0.mp3","assets/audio/e2_07_c1.mp3","assets/audio/e2_07_c2.mp3","assets/audio/e2_07_c3.mp3","assets/audio/e2_07_c4.mp3"]},{"id":"e2_08","exp":2,"original":"assets/audio/e2_08_orig.mp3","target":"E major","candidates":["assets/audio/e2_08_c0.mp3","assets/audio/e2_08_c1.mp3","assets/audio/e2_08_c2.mp3","assets/audio/e2_08_c3.mp3","assets/audio/e2_08_c4.mp3"]},{"id":"e2_09","exp":2,"original":"assets/audio/e2_09_orig.mp3","target":"B major","candidates":["assets/audio/e2_09_c0.mp3","assets/audio/e2_09_c1.mp3","assets/audio/e2_09_c2.mp3","assets/audio/e2_09_c3.mp3","assets/audio/e2_09_c4.mp3"]},{"id":"e2_10","exp":2,"original":"assets/audio/e2_10_orig.mp3","target":"C minor","candidates":["assets/audio/e2_10_c0.mp3","assets/audio/e2_10_c1.mp3","assets/audio/e2_10_c2.mp3","assets/audio/e2_10_c3.mp3","assets/audio/e2_10_c4.mp3"]},{"id":"e2_11","exp":2,"original":"assets/audio/e2_11_orig.mp3","target":"B minor","candidates":["assets/audio/e2_11_c0.mp3","assets/audio/e2_11_c1.mp3","assets/audio/e2_11_c2.mp3","assets/audio/e2_11_c3.mp3","assets/audio/e2_11_c4.mp3"]}];
+const NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+const KEY = "keychange-listening-v2";
+let S = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const $ = id => document.getElementById(id);
+const show = id => ["start", "intro1", "trial1", "intro2", "trial2", "done"].forEach(x => $(x).classList.toggle("hidden", x !== id));
 
-function render() {
-  tbody.innerHTML = "";
-  for (const it of ITEMS) {
-    const s = state[it.n] || {};
-    const tr = document.createElement("tr");
-    if (s.label) tr.className = "done";
-    tr.innerHTML = `
-      <td>${it.n}</td>
-      <td><audio controls preload="none" src="${it.file}"></audio>
-          <div class="src"><a href="${it.url}" target="_blank" rel="noopener">${esc(it.title)}</a>
-          by ${esc(it.user)} · <a href="${it.license_url}" target="_blank" rel="noopener">${it.license}</a></div></td>
-      <td class="choice">${["mono", "poly", "unclear"].map(v =>
-          `<label><input type="radio" name="c${it.n}" value="${v}" ${s.label === v ? "checked" : ""}> ${v}</label>`).join("")}</td>
-      <td><input class="note" type="text" value="${esc(s.note || "")}" placeholder="e.g. octave doubling at bar 3"></td>`;
-    tr.querySelectorAll("input[type=radio]").forEach(r => r.addEventListener("change", () => {
-      state[it.n] = {...(state[it.n] || {}), label: r.value}; save(); tr.className = "done"; progress();
-    }));
-    tr.querySelector("input.note").addEventListener("input", e => {
-      state[it.n] = {...(state[it.n] || {}), note: e.target.value}; save();
-    });
-    tbody.appendChild(tr);
-  }
-  progress();
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function shuffle(a, r) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function setup(code) {
+  if (S.code === code && S.order1) return;
+  const r = rng(hash(code));
+  S = {code, order1: shuffle(STIM.filter(s => s.exp === 1).map(s => s.id), r),
+       order2: shuffle(STIM.filter(s => s.exp === 2).map(s => s.id), r), cand: {}, ans1: {}, ans2: {}};
+  for (const s of STIM.filter(s => s.exp === 2)) S.cand[s.id] = shuffle([0, 1, 2, 3, 4], r);
+  save();
 }
-function progress() {
-  const done = ITEMS.filter(it => (state[it.n] || {}).label).length;
-  document.getElementById("progress").textContent = `${done} / ${ITEMS.length} judged`;
+const byId = Object.fromEntries(STIM.map(s => [s.id, s]));
+
+// ---- drone (Web Audio): a soft organ-like tone in octave 2-3
+let ctx = null, drone = null;
+function droneOn(pc) {
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+  droneOff();
+  const f = 65.41 * Math.pow(2, pc / 12) * (pc < 5 ? 2 : 1);   // C3..E3 and F2..B2 keep the drone low
+  const g = ctx.createGain(); g.gain.value = 0; g.connect(ctx.destination);
+  const oscs = [[1, 1], [2, .45], [3, .2], [4, .1]].map(([h, a]) => {
+    const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.value = f * h; og.gain.value = a;
+    o.connect(og); og.connect(g); o.start(); return o; });
+  g.gain.linearRampToValueAtTime($("vol").value / 100 * 0.18, ctx.currentTime + 0.15);
+  drone = {g, oscs};
 }
-document.getElementById("download").addEventListener("click", () => {
+function droneOff() {
+  if (!drone || !ctx) return;
+  const d = drone; drone = null;
+  d.g.gain.cancelScheduledValues(ctx.currentTime); d.g.gain.setValueAtTime(d.g.gain.value, ctx.currentTime);
+  d.g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.12); setTimeout(() => d.oscs.forEach(o => o.stop()), 200);
+}
+$("vol").addEventListener("input", () => { if (drone) drone.g.gain.value = $("vol").value / 100 * 0.18; });
+
+function scale(el, name, n, onPick) {
+  el.querySelectorAll("label").forEach(x => x.remove());
+  for (let i = 1; i <= n; i++) { const l = document.createElement("label");
+    l.innerHTML = `<input type="radio" name="${name}" value="${i}"> ${i}`; l.querySelector("input").onchange = () => onPick(i); el.appendChild(l); }
+}
+
+// ---- part 1
+let cur1 = null;
+function nextIndex(order, ans) { return order.findIndex(id => !ans[id]); }
+function trial1() {
+  const i = nextIndex(S.order1, S.ans1);
+  if (i < 0) { droneOff(); show("intro2"); return; }
+  const id = S.order1[i], st = byId[id];
+  cur1 = {id, pick: null, conf: null, unsure: false, tries: [], t0: Date.now()};
+  $("t1n").textContent = `Part 1 · ${i + 1} / ${S.order1.length}`; $("t1p").textContent = "";
+  $("b1").style.width = `${100 * i / S.order1.length}%`;
+  $("a1").src = st.file; $("a1").play().catch(() => {});
+  $("unsure").checked = false;
+  const box = $("pitches"); box.innerHTML = "";
+  NAMES.forEach((nm, pc) => { const b = document.createElement("button"); b.textContent = nm;
+    b.onclick = () => { box.querySelectorAll("button").forEach(x => x.classList.remove("on")); b.classList.add("on");
+      cur1.pick = pc; cur1.tries.push(pc); droneOn(pc); ready1(); }; box.appendChild(b); });
+  scale($("conf1"), "conf1", 5, v => { cur1.conf = v; ready1(); });
+  show("trial1"); ready1();
+}
+function ready1() { $("next1").disabled = !((cur1.unsure) || (cur1.pick !== null && cur1.conf !== null)); }
+$("unsure").onchange = e => { cur1.unsure = e.target.checked; ready1(); };
+$("droneoff").onclick = () => { droneOff(); $("pitches").querySelectorAll("button").forEach(x => x.classList.remove("on")); };
+$("next1").onclick = () => {
+  S.ans1[cur1.id] = {pick: cur1.unsure ? "" : NAMES[cur1.pick], pick_pc: cur1.unsure ? "" : cur1.pick, conf: cur1.conf ?? "",
+    unsure: cur1.unsure, tries: cur1.tries.map(p => NAMES[p]).join(" "), seconds: Math.round((Date.now() - cur1.t0) / 1000)};
+  save(); droneOff(); $("a1").pause(); trial1();
+};
+
+// ---- part 2
+let cur2 = null;
+function trial2() {
+  const i = nextIndex(S.order2, S.ans2);
+  if (i < 0) { show("done"); return; }
+  const id = S.order2[i], st = byId[id], perm = S.cand[id];
+  cur2 = {id, pick: null, nat: null, t0: Date.now()};
+  $("t2n").textContent = `Part 2 · ${i + 1} / ${S.order2.length}`;
+  $("b2").style.width = `${100 * i / S.order2.length}%`;
+  $("orig").src = st.original; $("target").textContent = st.target;
+  const box = $("cands"); box.innerHTML = "";
+  perm.forEach((k, pos) => { const d = document.createElement("div"); d.className = "cand";
+    d.innerHTML = `<b>${"ABCDE"[pos]}</b><audio controls preload="auto" src="${st.candidates[k]}"></audio>
+      <label><input type="radio" name="pick" value="${k}"> pick</label>`; box.appendChild(d); });
+  document.querySelectorAll("input[name=pick]").forEach(x => { x.checked = false; x.onchange = () => {
+    cur2.pick = x.value; document.querySelectorAll(".cand").forEach(c => c.classList.remove("picked"));
+    x.closest(".cand").classList.add("picked"); ready2(); }; });
+  scale($("nat"), "nat", 5, v => { cur2.nat = v; ready2(); });
+  show("trial2"); ready2();
+}
+function ready2() { $("next2").disabled = !(cur2.pick !== null && (cur2.pick === "none" || cur2.nat !== null)); }
+$("next2").onclick = () => {
+  const perm = S.cand[cur2.id];
+  S.ans2[cur2.id] = {pick: cur2.pick === "none" ? "none" : `c${cur2.pick}`,
+    position: cur2.pick === "none" ? "" : "ABCDE"[perm.indexOf(Number(cur2.pick))], natural: cur2.nat ?? "",
+    seconds: Math.round((Date.now() - cur2.t0) / 1000)};
+  save(); trial2();
+};
+
+// ---- flow and export
+$("go").onclick = () => { const c = $("code").value.trim().toUpperCase(); if (!c) return; setup(c);
+  if (nextIndex(S.order1, S.ans1) >= 0) show(Object.keys(S.ans1).length ? "trial1" : "intro1"), Object.keys(S.ans1).length && trial1();
+  else if (nextIndex(S.order2, S.ans2) >= 0) Object.keys(S.ans2).length ? trial2() : show("intro2"); else show("done"); };
+$("begin1").onclick = trial1; $("begin2").onclick = trial2;
+function csv() {
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = ["n,freesound_id,label,note"].concat(ITEMS.map(it => {
-    const s = state[it.n] || {};
-    return [it.n, it.id, s.label || "", q(s.note)].join(",");
-  }));
-  const blob = new Blob([lines.join("\n") + "\n"], {type: "text/csv"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = "keychange_monophony_check.csv"; a.click();
-  URL.revokeObjectURL(a.href);
-});
-document.getElementById("reset").addEventListener("click", () => {
-  if (confirm("Clear all choices on this page?")) { for (const k in state) delete state[k]; save(); render(); }
-});
-render();
+  const lines = ["participant,part,stimulus,order,pick,pick_pc,confidence,unsure,tries,position,natural,seconds"];
+  (S.order1 || []).forEach((id, n) => { const a = S.ans1[id]; if (a) lines.push([S.code, 1, id, n + 1, a.pick, a.pick_pc, a.conf, a.unsure, q(a.tries), "", "", a.seconds].join(",")); });
+  (S.order2 || []).forEach((id, n) => { const a = S.ans2[id]; if (a) lines.push([S.code, 2, id, n + 1, a.pick, "", "", "", "", a.position, a.natural, a.seconds].join(",")); });
+  const blob = new Blob([lines.join("\n") + "\n"], {type: "text/csv"}), el = document.createElement("a");
+  el.href = URL.createObjectURL(blob); el.download = `keychange_listening_${S.code || "anon"}.csv`; el.click(); URL.revokeObjectURL(el.href);
+}
+$("download").onclick = csv; $("dl2").onclick = csv;
+$("reset").onclick = () => { if (confirm("Clear all your answers in this browser?")) { S = {}; save(); location.reload(); } };
+if (S.code) $("code").value = S.code;
 </script>
 </body>
 </html>
