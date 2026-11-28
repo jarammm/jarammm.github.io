@@ -3,60 +3,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>keychange listening test</title>
+  <title>keychange listening examples</title>
   <link rel="stylesheet" type="text/css" href="/css/main.css">
   <style>
-    :root { --fg: #222; --muted: #6b7280; --bd: #e5e7eb; --pick: #eef2ff; --accent: #4f46e5; }
+    :root { --fg: #222; --muted: #6b7280; --bd: #e5e7eb; --pick: #eef2ff; --accent: #4f46e5; --ok: #047857; }
     * { box-sizing: border-box; }
     .container { max-width: 900px; padding: 0 16px; }
     p, li { line-height: 1.55; }
     .muted { color: var(--muted); font-size: .9rem; }
     .item { border-top: 1px solid var(--bd); padding: .9rem 0; }
-    .item.done { background: linear-gradient(90deg, var(--pick), transparent 70%); }
-    .head { display: flex; gap: .6rem; align-items: baseline; margin-bottom: .4rem; }
+    .head { display: flex; gap: .7rem; align-items: baseline; flex-wrap: wrap; margin-bottom: .4rem; }
+    .answer { font-size: 1.15rem; font-weight: 700; }
     audio { width: 100%; max-width: 420px; height: 34px; }
     button { padding: .35rem .7rem; border: 1px solid #c7cbd1; background: #fff; border-radius: 6px; cursor: pointer; font: inherit; }
     button:hover { background: #f5f5f5; }
     button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .pitches { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: .3rem; margin: .5rem 0; max-width: 690px; }
-    .pitches button.q.on { background: #6b7280; border-color: #6b7280; }
+    .pitches { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .3rem; margin: .5rem 0; max-width: 640px; }
     .pitches button { padding: .45rem 0; font-weight: 600; font-size: .85rem; }
-    .row { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin: .4rem 0; }
-    .scale label, .row label { white-space: nowrap; cursor: pointer; }
-    .scale label { margin-right: .5rem; }
-    .cand { display: grid; grid-template-columns: 1.6rem minmax(0, 420px) auto; gap: .6rem; align-items: center; padding: .2rem 0; }
+    .pitches button.tonic { outline: 2px solid var(--ok); outline-offset: 1px; }
+    .cand { display: grid; grid-template-columns: 1.6rem minmax(0, 420px) 1fr; gap: .6rem; align-items: center; padding: .25rem 0; }
+    .cand.ref { background: #ecfdf5; }
+    .tag { font-size: .8rem; padding: .05rem .4rem; border-radius: 4px; border: 1px solid var(--bd); color: var(--muted); }
+    .tag.ref { border-color: var(--ok); color: var(--ok); font-weight: 600; }
     .bar { position: sticky; top: 0; background: #fff; z-index: 2; display: flex; gap: .8rem; align-items: center; flex-wrap: wrap;
            padding: .6rem 0; border-bottom: 1px solid var(--bd); }
     .src { font-size: .82rem; color: var(--muted); }
-    @media (max-width: 640px) { .pitches { grid-template-columns: repeat(7, minmax(0, 1fr)); } .cand { grid-template-columns: 1.6rem 1fr; } }
+    @media (max-width: 640px) { .pitches { grid-template-columns: repeat(6, minmax(0, 1fr)); } .cand { grid-template-columns: 1.6rem 1fr; } }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>Listening test: tonic and key change</h1>
-  <p>Part of <b>keychange</b>, a study of changing the key of a single-instrument track. Please use headphones. Answering is optional;
-  answers stay in this browser and can be downloaded as CSV at any time. If you answer, please do part 1 before part 2.<br>
-  <span class="muted">단일 악기 트랙의 키 변환 연구를 위한 청취 페이지입니다. 헤드폰을 써 주세요. 답은 선택 사항이며 이 브라우저에 저장되고, 언제든 CSV 로 내려받을 수 있습니다. 답하신다면 1부를 먼저 해 주세요.</span></p>
+  <h1>keychange: listening examples with answers</h1>
+  <p>Part of <b>keychange</b>, a study of changing the key of a single-instrument track whose source key and scale are unknown.
+  Each excerpt is shown with its correct key and scale. Please listen (headphones help) and send your comments directly:
+  does the stated tonic and scale match what you hear, and which key-changed take sounds right?<br>
+  <span class="muted">원본 키·스케일을 모르는 단일 악기 트랙의 키 변환 연구입니다. 구간마다 정답 키와 스케일을 적었습니다. 들어 보시고(헤드폰 권장) 적힌 으뜸음·스케일이 들리는 것과 맞는지, 키를 바꾼 버전 중 어느 것이 맞게 들리는지 의견을 직접 보내 주세요.</span></p>
 
   <div class="bar">
-    <button id="download">Download CSV</button>
-    <button id="reset">Clear answers</button>
     <span class="muted">Drone volume</span><input id="vol" type="range" min="0" max="100" value="45">
     <button id="droneoff">Drone off</button>
-    <span id="progress" class="muted"></span>
+    <span class="muted">Pitch buttons add a low held tone; the outlined one is the correct tonic.</span>
   </div>
 
-  <h2>Part 1 — Which pitch is the tonic?</h2>
-  <p>Play an excerpt (it loops) and try the 12 pitch buttons: each adds a low held tone. The tonic is the pitch under which the excerpt
-  sounds most at rest, as if it could end there; the last pressed pitch is your answer. Press <b>?</b> if you cannot tell (two or more
-  feel equally right, or none does).<br>
-  <span class="muted">구간을 재생하고(반복됩니다) 12개 음 버튼을 눌러 보세요. 누른 음이 낮게 계속 울립니다. 으뜸음은 그 음 위에서 구간이 가장 쉬어지는(거기서 끝날 수 있을 것 같은) 음입니다. 마지막으로 누른 음이 답이 됩니다. 정하기 어려우면(둘 이상이 똑같거나 하나도 없으면) <b>?</b> 를 누르세요.</span></p>
+  <h2>Part 1 — Excerpts and their key and scale</h2>
+  <p class="muted">Chord-Scale takes are all in Bb in the dataset; here each is moved to another key (WORLD transposition), and the answer
+  is given in the new key. The small line shows which tonic the rule-based estimator and S-KEY picked.
+  · Chord-Scale 원본은 모두 Bb 이라 다른 키로 옮겼고, 정답도 옮긴 키로 적었습니다. 작은 줄은 규칙 추정기와 S-KEY 가 고른 으뜸음입니다.</p>
   <div id="part1"></div>
 
-  <h2>Part 2 — Which take is right in the target key?</h2>
-  <p>Each item has an original take and five versions moved to a target key. Pick the version that is in the target key and keeps the
-  character of the original best, or <i>none fits</i>; then rate how natural your pick sounds.<br>
-  <span class="muted">원본과, 목표 키로 바꾼 다섯 버전입니다. 목표 키에 맞으면서 원본의 성격을 가장 잘 지킨 버전을 고르거나 none fits 를 고르고, 고른 버전의 자연스러움을 매겨 주세요.</span></p>
+  <h2>Part 2 — Key change to a target key: five candidates</h2>
+  <p class="muted">The original take, the target key, and the scale the conversion should land on (rule B: keep the source scale when
+  major/minor stays; otherwise the target-quality scale with the fewest differing tones). Each candidate shows a key and scale that
+  produces it (rule estimator 3, S-KEY 2); the reference is marked.
+  · 원본, 목표키, 변환이 도달해야 할 스케일(규칙 B). 후보마다 그 결과를 내는 키·스케일과 출처를 적었고, 정답 출력에 표시했습니다.</p>
   <div id="part2"></div>
 
   <h3>Sources</h3>
@@ -68,26 +67,13 @@
 </div>
 
 <script>
-const STIM = [{"id":"e1_000","exp":1,"file":"assets/audio/e1_000.mp3"},{"id":"e1_001","exp":1,"file":"assets/audio/e1_001.mp3"},{"id":"e1_002","exp":1,"file":"assets/audio/e1_002.mp3"},{"id":"e1_003","exp":1,"file":"assets/audio/e1_003.mp3"},{"id":"e1_004","exp":1,"file":"assets/audio/e1_004.mp3"},{"id":"e1_005","exp":1,"file":"assets/audio/e1_005.mp3"},{"id":"e1_006","exp":1,"file":"assets/audio/e1_006.mp3"},{"id":"e1_007","exp":1,"file":"assets/audio/e1_007.mp3"},{"id":"e1_008","exp":1,"file":"assets/audio/e1_008.mp3"},{"id":"e1_009","exp":1,"file":"assets/audio/e1_009.mp3"},{"id":"e1_010","exp":1,"file":"assets/audio/e1_010.mp3"},{"id":"e1_011","exp":1,"file":"assets/audio/e1_011.mp3"},{"id":"e1_012","exp":1,"file":"assets/audio/e1_012.mp3"},{"id":"e1_013","exp":1,"file":"assets/audio/e1_013.mp3"},{"id":"e1_014","exp":1,"file":"assets/audio/e1_014.mp3"},{"id":"e1_015","exp":1,"file":"assets/audio/e1_015.mp3"},{"id":"e1_016","exp":1,"file":"assets/audio/e1_016.mp3"},{"id":"e1_017","exp":1,"file":"assets/audio/e1_017.mp3"},{"id":"e1_018","exp":1,"file":"assets/audio/e1_018.mp3"},{"id":"e1_019","exp":1,"file":"assets/audio/e1_019.mp3"},{"id":"e1_020","exp":1,"file":"assets/audio/e1_020.mp3"},{"id":"e1_021","exp":1,"file":"assets/audio/e1_021.mp3"},{"id":"e1_022","exp":1,"file":"assets/audio/e1_022.mp3"},{"id":"e1_023","exp":1,"file":"assets/audio/e1_023.mp3"},{"id":"e1_024","exp":1,"file":"assets/audio/e1_024.mp3"},{"id":"e1_025","exp":1,"file":"assets/audio/e1_025.mp3"},{"id":"e1_026","exp":1,"file":"assets/audio/e1_026.mp3"},{"id":"e1_027","exp":1,"file":"assets/audio/e1_027.mp3"},{"id":"e1_028","exp":1,"file":"assets/audio/e1_028.mp3"},{"id":"e1_029","exp":1,"file":"assets/audio/e1_029.mp3"},{"id":"e1_030","exp":1,"file":"assets/audio/e1_030.mp3"},{"id":"e1_031","exp":1,"file":"assets/audio/e1_031.mp3"},{"id":"e1_032","exp":1,"file":"assets/audio/e1_032.mp3"},{"id":"e1_033","exp":1,"file":"assets/audio/e1_033.mp3"},{"id":"e1_034","exp":1,"file":"assets/audio/e1_034.mp3"},{"id":"e1_035","exp":1,"file":"assets/audio/e1_035.mp3"},{"id":"e1_036","exp":1,"file":"assets/audio/e1_036.mp3"},{"id":"e1_037","exp":1,"file":"assets/audio/e1_037.mp3"},{"id":"e1_038","exp":1,"file":"assets/audio/e1_038.mp3"},{"id":"e1_039","exp":1,"file":"assets/audio/e1_039.mp3"},{"id":"e1_040","exp":1,"file":"assets/audio/e1_040.mp3"},{"id":"e1_041","exp":1,"file":"assets/audio/e1_041.mp3"},{"id":"e1_042","exp":1,"file":"assets/audio/e1_042.mp3"},{"id":"e1_043","exp":1,"file":"assets/audio/e1_043.mp3"},{"id":"e1_044","exp":1,"file":"assets/audio/e1_044.mp3"},{"id":"e1_045","exp":1,"file":"assets/audio/e1_045.mp3"},{"id":"e1_046","exp":1,"file":"assets/audio/e1_046.mp3"},{"id":"e1_047","exp":1,"file":"assets/audio/e1_047.mp3"},{"id":"e1_048","exp":1,"file":"assets/audio/e1_048.mp3"},{"id":"e1_049","exp":1,"file":"assets/audio/e1_049.mp3"},{"id":"e1_050","exp":1,"file":"assets/audio/e1_050.mp3"},{"id":"e1_051","exp":1,"file":"assets/audio/e1_051.mp3"},{"id":"e1_052","exp":1,"file":"assets/audio/e1_052.mp3"},{"id":"e1_053","exp":1,"file":"assets/audio/e1_053.mp3"},{"id":"e1_054","exp":1,"file":"assets/audio/e1_054.mp3"},{"id":"e1_055","exp":1,"file":"assets/audio/e1_055.mp3"},{"id":"e2_00","exp":2,"original":"assets/audio/e2_00_orig.mp3","target":"F major","candidates":["assets/audio/e2_00_c0.mp3","assets/audio/e2_00_c1.mp3","assets/audio/e2_00_c2.mp3","assets/audio/e2_00_c3.mp3","assets/audio/e2_00_c4.mp3"]},{"id":"e2_01","exp":2,"original":"assets/audio/e2_01_orig.mp3","target":"F# minor","candidates":["assets/audio/e2_01_c0.mp3","assets/audio/e2_01_c1.mp3","assets/audio/e2_01_c2.mp3","assets/audio/e2_01_c3.mp3","assets/audio/e2_01_c4.mp3"]},{"id":"e2_02","exp":2,"original":"assets/audio/e2_02_orig.mp3","target":"A major","candidates":["assets/audio/e2_02_c0.mp3","assets/audio/e2_02_c1.mp3","assets/audio/e2_02_c2.mp3","assets/audio/e2_02_c3.mp3","assets/audio/e2_02_c4.mp3"]},{"id":"e2_03","exp":2,"original":"assets/audio/e2_03_orig.mp3","target":"E major","candidates":["assets/audio/e2_03_c0.mp3","assets/audio/e2_03_c1.mp3","assets/audio/e2_03_c2.mp3","assets/audio/e2_03_c3.mp3","assets/audio/e2_03_c4.mp3"]},{"id":"e2_04","exp":2,"original":"assets/audio/e2_04_orig.mp3","target":"B minor","candidates":["assets/audio/e2_04_c0.mp3","assets/audio/e2_04_c1.mp3","assets/audio/e2_04_c2.mp3","assets/audio/e2_04_c3.mp3","assets/audio/e2_04_c4.mp3"]},{"id":"e2_05","exp":2,"original":"assets/audio/e2_05_orig.mp3","target":"F# major","candidates":["assets/audio/e2_05_c0.mp3","assets/audio/e2_05_c1.mp3","assets/audio/e2_05_c2.mp3","assets/audio/e2_05_c3.mp3","assets/audio/e2_05_c4.mp3"]},{"id":"e2_06","exp":2,"original":"assets/audio/e2_06_orig.mp3","target":"Ab major","candidates":["assets/audio/e2_06_c0.mp3","assets/audio/e2_06_c1.mp3","assets/audio/e2_06_c2.mp3","assets/audio/e2_06_c3.mp3","assets/audio/e2_06_c4.mp3"]},{"id":"e2_07","exp":2,"original":"assets/audio/e2_07_orig.mp3","target":"B major","candidates":["assets/audio/e2_07_c0.mp3","assets/audio/e2_07_c1.mp3","assets/audio/e2_07_c2.mp3","assets/audio/e2_07_c3.mp3","assets/audio/e2_07_c4.mp3"]},{"id":"e2_08","exp":2,"original":"assets/audio/e2_08_orig.mp3","target":"E major","candidates":["assets/audio/e2_08_c0.mp3","assets/audio/e2_08_c1.mp3","assets/audio/e2_08_c2.mp3","assets/audio/e2_08_c3.mp3","assets/audio/e2_08_c4.mp3"]},{"id":"e2_09","exp":2,"original":"assets/audio/e2_09_orig.mp3","target":"B major","candidates":["assets/audio/e2_09_c0.mp3","assets/audio/e2_09_c1.mp3","assets/audio/e2_09_c2.mp3","assets/audio/e2_09_c3.mp3","assets/audio/e2_09_c4.mp3"]},{"id":"e2_10","exp":2,"original":"assets/audio/e2_10_orig.mp3","target":"C minor","candidates":["assets/audio/e2_10_c0.mp3","assets/audio/e2_10_c1.mp3","assets/audio/e2_10_c2.mp3","assets/audio/e2_10_c3.mp3","assets/audio/e2_10_c4.mp3"]},{"id":"e2_11","exp":2,"original":"assets/audio/e2_11_orig.mp3","target":"B minor","candidates":["assets/audio/e2_11_c0.mp3","assets/audio/e2_11_c1.mp3","assets/audio/e2_11_c2.mp3","assets/audio/e2_11_c3.mp3","assets/audio/e2_11_c4.mp3"]}];
+const ITEMS = {"p1":[{"file":"assets/audio/e1_045.mp3","answer":"G minor","tonic":7,"note":"FSL10K lead loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_015.mp3","answer":"B Harmonic Minor","tonic":11,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic C# \u00b7 S-KEY tonic F#"},{"file":"assets/audio/e1_001.mp3","answer":"F# Aeolian (natural minor)","tonic":6,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic E \u00b7 S-KEY tonic C#"},{"file":"assets/audio/e1_018.mp3","answer":"C Ionian (major)","tonic":0,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic C \u00b7 S-KEY tonic C"},{"file":"assets/audio/e1_016.mp3","answer":"G Harmonic Minor","tonic":7,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic G \u00b7 S-KEY tonic G"},{"file":"assets/audio/e1_011.mp3","answer":"Ab Half Whole Diminished","tonic":8,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic F# \u00b7 S-KEY tonic C#"},{"file":"assets/audio/e1_009.mp3","answer":"E Dorian","tonic":4,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic E \u00b7 S-KEY tonic D"},{"file":"assets/audio/e1_008.mp3","answer":"E Dorian","tonic":4,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic F# \u00b7 S-KEY tonic B"},{"file":"assets/audio/e1_043.mp3","answer":"E minor","tonic":4,"note":"FSL10K lead loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_055.mp3","answer":"Bb Ionian (major)","tonic":10,"note":"check melody (rendered)","guess":""},{"file":"assets/audio/e1_004.mp3","answer":"C Altered","tonic":0,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic C# \u00b7 S-KEY tonic F"},{"file":"assets/audio/e1_038.mp3","answer":"C# Phrygian","tonic":1,"note":"Chord-Scale (human scale label), transposed \u00b7 repeat in another key","guess":"rule estimator tonic E \u00b7 S-KEY tonic F#"},{"file":"assets/audio/e1_036.mp3","answer":"A Dorian","tonic":9,"note":"Chord-Scale (human scale label), transposed \u00b7 repeat in another key","guess":"rule estimator tonic A \u00b7 S-KEY tonic A"},{"file":"assets/audio/e1_039.mp3","answer":"C Altered","tonic":0,"note":"Chord-Scale (human scale label), transposed \u00b7 repeat in another key","guess":"rule estimator tonic C# \u00b7 S-KEY tonic F"},{"file":"assets/audio/e1_041.mp3","answer":"C minor","tonic":0,"note":"FSL10K lead loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_050.mp3","answer":"Ab minor","tonic":8,"note":"FSL10K vocal loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_026.mp3","answer":"A Lydian","tonic":9,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic A \u00b7 S-KEY tonic Ab"},{"file":"assets/audio/e1_052.mp3","answer":"F# Ionian (major)","tonic":6,"note":"check melody (rendered)","guess":""},{"file":"assets/audio/e1_032.mp3","answer":"F# Mixolydian","tonic":6,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic F# \u00b7 S-KEY tonic B"},{"file":"assets/audio/e1_048.mp3","answer":"F# minor","tonic":6,"note":"FSL10K bass loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_047.mp3","answer":"D minor","tonic":2,"note":"FSL10K bass loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_021.mp3","answer":"F# Locrian","tonic":6,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic F# \u00b7 S-KEY tonic B"},{"file":"assets/audio/e1_034.mp3","answer":"Ab Phrygian","tonic":8,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic B \u00b7 S-KEY tonic C#"},{"file":"assets/audio/e1_005.mp3","answer":"F# Altered","tonic":6,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic F# \u00b7 S-KEY tonic E"},{"file":"assets/audio/e1_010.mp3","answer":"F Half Whole Diminished","tonic":5,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic F \u00b7 S-KEY tonic Bb"},{"file":"assets/audio/e1_019.mp3","answer":"F# Ionian (major)","tonic":6,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic B \u00b7 S-KEY tonic F#"},{"file":"assets/audio/e1_027.mp3","answer":"E Melodic Minor","tonic":4,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic E \u00b7 S-KEY tonic E"},{"file":"assets/audio/e1_037.mp3","answer":"A Melodic Minor","tonic":9,"note":"Chord-Scale (human scale label), transposed \u00b7 repeat in another key","guess":"rule estimator tonic C \u00b7 S-KEY tonic A"},{"file":"assets/audio/e1_013.mp3","answer":"F# Half Whole Diminished","tonic":6,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic E \u00b7 S-KEY tonic F"},{"file":"assets/audio/e1_020.mp3","answer":"D Ionian (major)","tonic":2,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic D \u00b7 S-KEY tonic D"},{"file":"assets/audio/e1_028.mp3","answer":"C Melodic Minor","tonic":0,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic Eb \u00b7 S-KEY tonic C"},{"file":"assets/audio/e1_042.mp3","answer":"C major","tonic":0,"note":"FSL10K lead loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_054.mp3","answer":"F# Harmonic Minor","tonic":6,"note":"check melody (rendered)","guess":""},{"file":"assets/audio/e1_033.mp3","answer":"A Phrygian","tonic":9,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic A \u00b7 S-KEY tonic D"},{"file":"assets/audio/e1_002.mp3","answer":"Ab Aeolian (natural minor)","tonic":8,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic Ab \u00b7 S-KEY tonic Ab"},{"file":"assets/audio/e1_053.mp3","answer":"A Harmonic Minor","tonic":9,"note":"check melody (rendered)","guess":""},{"file":"assets/audio/e1_017.mp3","answer":"E Harmonic Minor","tonic":4,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic B \u00b7 S-KEY tonic B"},{"file":"assets/audio/e1_030.mp3","answer":"B Mixolydian","tonic":11,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic B \u00b7 S-KEY tonic E"},{"file":"assets/audio/e1_012.mp3","answer":"A Half Whole Diminished","tonic":9,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic A \u00b7 S-KEY tonic Ab"},{"file":"assets/audio/e1_031.mp3","answer":"C Mixolydian","tonic":0,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic D \u00b7 S-KEY tonic D"},{"file":"assets/audio/e1_051.mp3","answer":"Ab minor","tonic":8,"note":"FSL10K vocal loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_022.mp3","answer":"C Locrian","tonic":0,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic Ab \u00b7 S-KEY tonic Bb"},{"file":"assets/audio/e1_014.mp3","answer":"G Harmonic Minor","tonic":7,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic G \u00b7 S-KEY tonic G"},{"file":"assets/audio/e1_003.mp3","answer":"Ab Altered","tonic":8,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic Ab \u00b7 S-KEY tonic E"},{"file":"assets/audio/e1_044.mp3","answer":"D minor","tonic":2,"note":"FSL10K lead loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_035.mp3","answer":"E Phrygian","tonic":4,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic E \u00b7 S-KEY tonic A"},{"file":"assets/audio/e1_023.mp3","answer":"A Locrian","tonic":9,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic A \u00b7 S-KEY tonic G"},{"file":"assets/audio/e1_024.mp3","answer":"B Lydian","tonic":11,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic B \u00b7 S-KEY tonic Eb"},{"file":"assets/audio/e1_025.mp3","answer":"C# Lydian","tonic":1,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic G \u00b7 S-KEY tonic G"},{"file":"assets/audio/e1_040.mp3","answer":"Bb minor","tonic":10,"note":"FSL10K lead loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_000.mp3","answer":"A Aeolian (natural minor)","tonic":9,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic A \u00b7 S-KEY tonic A"},{"file":"assets/audio/e1_006.mp3","answer":"F Altered","tonic":5,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic A \u00b7 S-KEY tonic C#"},{"file":"assets/audio/e1_049.mp3","answer":"F minor","tonic":5,"note":"FSL10K bass loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_046.mp3","answer":"B minor","tonic":11,"note":"FSL10K bass loop (expert key; no scale label)","guess":""},{"file":"assets/audio/e1_007.mp3","answer":"Eb Dorian","tonic":3,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic Eb \u00b7 S-KEY tonic Eb"},{"file":"assets/audio/e1_029.mp3","answer":"B Melodic Minor","tonic":11,"note":"Chord-Scale (human scale label), transposed","guess":"rule estimator tonic B \u00b7 S-KEY tonic B"}],"p2":[{"original":"assets/audio/e2_07_orig.mp3","source":"Bb Aeolian (natural minor)","target":"B major","intended":"B Mixolydian b6","flip":true,"has_ref":true,"candidates":[{"file":"assets/audio/e2_07_c0.mp3","label":"F# Major Pentatonic","from":"rule","ref":false},{"file":"assets/audio/e2_07_c1.mp3","label":"Eb Minor Pentatonic","from":"rule","ref":false},{"file":"assets/audio/e2_07_c2.mp3","label":"Bb Aeolian (natural minor)","from":"rule","ref":true},{"file":"assets/audio/e2_07_c3.mp3","label":"C# Ionian (major)","from":"skey","ref":false},{"file":"assets/audio/e2_07_c4.mp3","label":"Ab Mixolydian","from":"skey","ref":false}]},{"original":"assets/audio/e2_09_orig.mp3","source":"Bb Mixolydian","target":"B major","intended":"B Mixolydian","flip":false,"has_ref":true,"candidates":[{"file":"assets/audio/e2_09_c0.mp3","label":"D Whole Tone","from":"rule","ref":false},{"file":"assets/audio/e2_09_c1.mp3","label":"Bb Mixolydian","from":"rule","ref":true},{"file":"assets/audio/e2_09_c2.mp3","label":"F# Lydian Augmented","from":"rule","ref":false},{"file":"assets/audio/e2_09_c3.mp3","label":"Eb Ionian (major)","from":"skey","ref":false},{"file":"assets/audio/e2_09_c4.mp3","label":"F Dorian","from":"skey","ref":false}]},{"original":"assets/audio/e2_05_orig.mp3","source":"Bb Locrian","target":"F# major","intended":"F# Altered","flip":true,"has_ref":false,"candidates":[{"file":"assets/audio/e2_05_c0.mp3","label":"Ab Mixolydian b6","from":"rule","ref":false},{"file":"assets/audio/e2_05_c1.mp3","label":"C# Melodic Minor","from":"rule","ref":false},{"file":"assets/audio/e2_05_c2.mp3","label":"Bb Locrian natural 2","from":"rule","ref":false},{"file":"assets/audio/e2_05_c3.mp3","label":"F# Lydian Dominant","from":"skey","ref":false},{"file":"assets/audio/e2_05_c4.mp3","label":"Eb Dorian b2","from":"skey","ref":false}]},{"original":"assets/audio/e2_02_orig.mp3","source":"Bb Ionian (major)","target":"A major","intended":"A Ionian (major)","flip":false,"has_ref":false,"candidates":[{"file":"assets/audio/e2_02_c0.mp3","label":"F Mixolydian","from":"rule","ref":false},{"file":"assets/audio/e2_02_c1.mp3","label":"D Phrygian","from":"rule","ref":false},{"file":"assets/audio/e2_02_c2.mp3","label":"A Locrian","from":"rule","ref":false},{"file":"assets/audio/e2_02_c3.mp3","label":"C Dorian","from":"skey","ref":false},{"file":"assets/audio/e2_02_c4.mp3","label":"G Aeolian (natural minor)","from":"skey","ref":false}]},{"original":"assets/audio/e2_04_orig.mp3","source":"Bb Melodic Minor","target":"B minor","intended":"B Melodic Minor","flip":false,"has_ref":true,"candidates":[{"file":"assets/audio/e2_04_c0.mp3","label":"A Altered","from":"rule","ref":false},{"file":"assets/audio/e2_04_c1.mp3","label":"Bb Melodic Minor","from":"rule","ref":true},{"file":"assets/audio/e2_04_c2.mp3","label":"Eb Lydian Dominant","from":"rule","ref":false},{"file":"assets/audio/e2_04_c3.mp3","label":"Ab Ionian (major)","from":"skey","ref":false},{"file":"assets/audio/e2_04_c4.mp3","label":"F Mixolydian b6","from":"skey","ref":false}]},{"original":"assets/audio/e2_06_orig.mp3","source":"Bb Melodic Minor","target":"Ab major","intended":"Ab Ionian (major)","flip":true,"has_ref":true,"candidates":[{"file":"assets/audio/e2_06_c0.mp3","label":"Eb Lydian Dominant","from":"rule","ref":false},{"file":"assets/audio/e2_06_c1.mp3","label":"A Altered","from":"rule","ref":false},{"file":"assets/audio/e2_06_c2.mp3","label":"C Dorian b2","from":"rule","ref":false},{"file":"assets/audio/e2_06_c3.mp3","label":"Ab Ionian (major)","from":"skey","ref":false},{"file":"assets/audio/e2_06_c4.mp3","label":"Bb Melodic Minor","from":"skey","ref":true}]},{"original":"assets/audio/e2_11_orig.mp3","source":"Bb Altered","target":"B minor","intended":"B Locrian","flip":true,"has_ref":false,"candidates":[{"file":"assets/audio/e2_11_c0.mp3","label":"B Melodic Minor Bebop","from":"rule","ref":false},{"file":"assets/audio/e2_11_c1.mp3","label":"Ab Locrian natural 2","from":"rule","ref":false},{"file":"assets/audio/e2_11_c2.mp3","label":"D Lydian Augmented","from":"rule","ref":false},{"file":"assets/audio/e2_11_c3.mp3","label":"F# Mixolydian b6","from":"skey","ref":false},{"file":"assets/audio/e2_11_c4.mp3","label":"A Dominant Bebop","from":"skey","ref":false}]},{"original":"assets/audio/e2_08_orig.mp3","source":"Bb Melodic Minor","target":"E major","intended":"E Ionian (major)","flip":true,"has_ref":true,"candidates":[{"file":"assets/audio/e2_08_c0.mp3","label":"C# Lydian Augmented","from":"rule","ref":false},{"file":"assets/audio/e2_08_c1.mp3","label":"F Mixolydian b6","from":"rule","ref":false},{"file":"assets/audio/e2_08_c2.mp3","label":"A Altered","from":"rule","ref":false},{"file":"assets/audio/e2_08_c3.mp3","label":"Eb Lydian Dominant","from":"skey","ref":false},{"file":"assets/audio/e2_08_c4.mp3","label":"Bb Melodic Minor","from":"skey","ref":true}]},{"original":"assets/audio/e2_01_orig.mp3","source":"Bb Harmonic Minor","target":"F# minor","intended":"F# Harmonic Minor","flip":false,"has_ref":true,"candidates":[{"file":"assets/audio/e2_01_c0.mp3","label":"C# Ionian aug5","from":"rule","ref":false},{"file":"assets/audio/e2_01_c1.mp3","label":"Eb Blues","from":"rule","ref":false},{"file":"assets/audio/e2_01_c2.mp3","label":"F# Dorian Bebop","from":"rule","ref":false},{"file":"assets/audio/e2_01_c3.mp3","label":"Bb Harmonic Minor","from":"skey","ref":true},{"file":"assets/audio/e2_01_c4.mp3","label":"E Whole Half Diminished","from":"skey","ref":false}]},{"original":"assets/audio/e2_10_orig.mp3","source":"Bb Half Whole Diminished","target":"C minor","intended":"C Locrian natural 6","flip":true,"has_ref":false,"candidates":[{"file":"assets/audio/e2_10_c0.mp3","label":"E Super Locrian bb7","from":"rule","ref":false},{"file":"assets/audio/e2_10_c1.mp3","label":"C# Super Locrian bb7","from":"rule","ref":false},{"file":"assets/audio/e2_10_c2.mp3","label":"G Super Locrian bb7","from":"rule","ref":false},{"file":"assets/audio/e2_10_c3.mp3","label":"B Ionian aug5","from":"skey","ref":false},{"file":"assets/audio/e2_10_c4.mp3","label":"A Phrygian Dominant","from":"skey","ref":false}]},{"original":"assets/audio/e2_03_orig.mp3","source":"Bb Mixolydian","target":"E major","intended":"E Mixolydian","flip":false,"has_ref":true,"candidates":[{"file":"assets/audio/e2_03_c0.mp3","label":"D Locrian","from":"rule","ref":false},{"file":"assets/audio/e2_03_c1.mp3","label":"C Aeolian (natural minor)","from":"rule","ref":false},{"file":"assets/audio/e2_03_c2.mp3","label":"Ab Lydian","from":"rule","ref":false},{"file":"assets/audio/e2_03_c3.mp3","label":"G Phrygian","from":"skey","ref":false},{"file":"assets/audio/e2_03_c4.mp3","label":"Bb Mixolydian","from":"skey","ref":true}]},{"original":"assets/audio/e2_00_orig.mp3","source":"Bb Altered","target":"F major","intended":"F Altered","flip":false,"has_ref":true,"candidates":[{"file":"assets/audio/e2_00_c0.mp3","label":"Bb Altered","from":"rule","ref":true},{"file":"assets/audio/e2_00_c1.mp3","label":"B Melodic Minor","from":"rule","ref":false},{"file":"assets/audio/e2_00_c2.mp3","label":"D Lydian Augmented","from":"rule","ref":false},{"file":"assets/audio/e2_00_c3.mp3","label":"Eb Phrygian","from":"skey","ref":false},{"file":"assets/audio/e2_00_c4.mp3","label":"Ab Locrian natural 2","from":"skey","ref":false}]}]};
 const NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const KEY = "keychange-listening-v3";
-let S = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
-S.ans1 = S.ans1 || {}; S.ans2 = S.ans2 || {};
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 
-// one fixed shuffle for everyone, so excerpt types are not grouped (answers are keyed by stimulus id)
-function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function shuffle(a, r) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-const R = rng(20261128);
-const P1 = shuffle(STIM.filter(s => s.exp === 1), R), P2 = shuffle(STIM.filter(s => s.exp === 2), R);
-const PERM = Object.fromEntries(P2.map(s => [s.id, shuffle([0, 1, 2, 3, 4], R)]));
-
-// only one player at a time
 document.addEventListener("play", e => { document.querySelectorAll("audio").forEach(a => { if (a !== e.target) a.pause(); }); }, true);
 
-// drone (Web Audio): a soft organ-like tone, F2..E3, one at a time
 let ctx = null, drone = null, droneBtn = null;
 function droneOn(pc, btn) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
@@ -110,72 +96,28 @@ function droneOff() {
 $("vol").addEventListener("input", () => { if (drone) drone.g.gain.value = $("vol").value / 100 * 0.18; });
 $("droneoff").onclick = droneOff;
 
-const radios = (name, n, cur) => Array.from({length: n}, (_, i) =>
-  `<label><input type="radio" name="${name}" value="${i + 1}" ${String(cur) === String(i + 1) ? "checked" : ""}> ${i + 1}</label>`).join("");
+ITEMS.p1.forEach((it, n) => {
+  const d = document.createElement("div"); d.className = "item";
+  d.innerHTML = `<div class="head"><b>1-${n + 1}</b><span class="answer">${esc(it.answer)}</span><span class="muted">${esc(it.note)}</span></div>
+    <audio controls loop preload="none" src="${it.file}"></audio>
+    <div class="pitches">${NAMES.map((nm, pc) => `<button data-pc="${pc}" class="${pc === it.tonic ? "tonic" : ""}">${nm}</button>`).join("")}</div>
+    ${it.guess ? `<div class="muted">${esc(it.guess)}</div>` : ""}`;
+  d.querySelectorAll(".pitches button").forEach(b => b.onclick = () => {
+    if (droneBtn === b) droneOff(); else droneOn(Number(b.dataset.pc), b); });
+  $("part1").appendChild(d);
+});
 
-function renderPart1() {
-  const box = $("part1"); box.innerHTML = "";
-  P1.forEach((st, n) => {
-    const a = S.ans1[st.id] || {};
-    const d = document.createElement("div"); d.className = "item" + (a.pick || a.unsure ? " done" : "");
-    d.innerHTML = `<div class="head"><b>1-${n + 1}</b></div>
-      <audio controls loop preload="none" src="${st.file}"></audio>
-      <div class="pitches">${NAMES.map((nm, pc) => `<button data-pc="${pc}">${nm}</button>`).join("")}<button class="q${a.unsure ? " on" : ""}" title="can't tell">?</button></div>
-      <div class="row"><span>Tonic: <b class="home">${a.unsure ? "?" : (a.pick || "–")}</b></span></div>
-      <div class="row scale">Confidence: ${radios(`c_${st.id}`, 5, a.conf)}</div>`;
-    const upd = patch => { S.ans1[st.id] = {...(S.ans1[st.id] || {}), ...patch, t: new Date().toISOString()}; save();
-      const x = S.ans1[st.id]; d.className = "item" + (x.pick || x.unsure ? " done" : "");
-      d.querySelector(".home").textContent = x.unsure ? "?" : (x.pick || "–"); d.querySelector(".q").classList.toggle("on", !!x.unsure); progress(); };
-    d.querySelectorAll(".pitches button[data-pc]").forEach(b => b.onclick = () => {
-      const pc = Number(b.dataset.pc), x = S.ans1[st.id] || {};
-      if (droneBtn === b) { droneOff(); return; }
-      droneOn(pc, b);
-      upd({pick: NAMES[pc], pick_pc: pc, unsure: false, tries: ((x.tries ? x.tries + " " : "") + NAMES[pc])});
-    });
-    d.querySelector(".q").onclick = () => { droneOff(); upd({pick: "", pick_pc: "", unsure: true}); };   // "?" = cannot tell
-    d.querySelectorAll(`input[name=c_${st.id}]`).forEach(r => r.onchange = () => upd({conf: Number(r.value)}));
-    box.appendChild(d);
-  });
-}
-
-function renderPart2() {
-  const box = $("part2"); box.innerHTML = "";
-  P2.forEach((st, n) => {
-    const a = S.ans2[st.id] || {}, perm = PERM[st.id];
-    const d = document.createElement("div"); d.className = "item" + (a.pick ? " done" : "");
-    d.innerHTML = `<div class="head"><b>2-${n + 1}</b><span>Target key: <b>${st.target}</b></span></div>
-      <div class="cand"><span class="muted">orig</span><audio controls preload="none" src="${st.original}"></audio><span></span></div>
-      ${perm.map((k, pos) => `<div class="cand"><b>${"ABCDE"[pos]}</b><audio controls preload="none" src="${st.candidates[k]}"></audio>
-        <label><input type="radio" name="p_${st.id}" value="c${k}" ${a.pick === "c" + k ? "checked" : ""}> pick</label></div>`).join("")}
-      <div class="row"><label><input type="radio" name="p_${st.id}" value="none" ${a.pick === "none" ? "checked" : ""}> none fits</label></div>
-      <div class="row scale">Natural: ${radios(`n_${st.id}`, 5, a.natural)}</div>`;
-    const upd = patch => { S.ans2[st.id] = {...(S.ans2[st.id] || {}), ...patch, t: new Date().toISOString()}; save();
-      d.className = "item" + (S.ans2[st.id].pick ? " done" : ""); progress(); };
-    d.querySelectorAll(`input[name=p_${st.id}]`).forEach(r => r.onchange = () => upd({pick: r.value,
-      position: r.value === "none" ? "" : "ABCDE"[perm.indexOf(Number(r.value.slice(1)))]}));
-    d.querySelectorAll(`input[name=n_${st.id}]`).forEach(r => r.onchange = () => upd({natural: Number(r.value)}));
-    box.appendChild(d);
-  });
-}
-
-function progress() {
-  const d1 = P1.filter(s => (S.ans1[s.id] || {}).pick || (S.ans1[s.id] || {}).unsure).length;
-  const d2 = P2.filter(s => (S.ans2[s.id] || {}).pick).length;
-  $("progress").textContent = `Part 1: ${d1}/${P1.length} · Part 2: ${d2}/${P2.length}`;
-}
-$("download").onclick = () => {
-  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = ["part,item,stimulus,pick,pick_pc,confidence,unsure,tries,position,natural,time"];
-  P1.forEach((s, n) => { const a = S.ans1[s.id]; if (a) lines.push([1, `1-${n + 1}`, s.id, a.pick ?? "", a.pick_pc ?? "", a.conf ?? "",
-    a.unsure ?? "", q(a.tries), "", "", a.t].join(",")); });
-  P2.forEach((s, n) => { const a = S.ans2[s.id]; if (a) lines.push([2, `2-${n + 1}`, s.id, a.pick ?? "", "", "", "", "",
-    a.position ?? "", a.natural ?? "", a.t].join(",")); });
-  const blob = new Blob([lines.join("\n") + "\n"], {type: "text/csv"}), el = document.createElement("a");
-  el.href = URL.createObjectURL(blob); el.download = `keychange_listening_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.csv`;
-  el.click(); URL.revokeObjectURL(el.href);
-};
-$("reset").onclick = () => { if (confirm("Clear all answers in this browser?")) { S = {ans1: {}, ans2: {}}; save(); renderPart1(); renderPart2(); progress(); } };
-renderPart1(); renderPart2(); progress();
+ITEMS.p2.forEach((it, n) => {
+  const d = document.createElement("div"); d.className = "item";
+  d.innerHTML = `<div class="head"><b>2-${n + 1}</b><span>Original: <b>${esc(it.source)}</b></span><span>→ target key <b>${esc(it.target)}</b></span>
+      <span>→ should land on <b>${esc(it.intended)}</b></span>${it.flip ? '<span class="tag">major/minor changes</span>' : ""}</div>
+    <div class="cand"><span class="muted">orig</span><audio controls preload="none" src="${it.original}"></audio><span></span></div>
+    ${it.candidates.map((c, k) => `<div class="cand${c.ref ? " ref" : ""}"><b>${"ABCDE"[k]}</b><audio controls preload="none" src="${c.file}"></audio>
+      <span>as if from ${esc(c.label)} <span class="tag">${c.from === "rule" ? "rule estimator" : c.from === "skey" ? "S-KEY" : "rule (top-up)"}</span>
+      ${c.ref ? '<span class="tag ref">reference</span>' : ""}</span></div>`).join("")}
+    ${it.has_ref ? "" : '<div class="muted">The reference (correct) output is not among these five.</div>'}`;
+  $("part2").appendChild(d);
+});
 </script>
 </body>
 </html>
